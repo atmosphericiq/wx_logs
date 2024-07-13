@@ -2,7 +2,7 @@ import unittest
 import json
 import pytz
 import datetime
-from src.wx_logs import wx_logs
+from wx_logs import wx_logs
 
 class WxLogsTestCase(unittest.TestCase):
 

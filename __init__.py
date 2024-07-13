@@ -1,2 +1,2 @@
-from src import wx_logs
+from wx_logs import wx_logs
 
