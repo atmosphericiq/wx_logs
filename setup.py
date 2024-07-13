@@ -1,14 +1,13 @@
 from setuptools import setup, find_packages
 
 setup(
-  name='wx_logs',  # Replace with your project name
-  version='0.1',
-  packages=find_packages(),
-  install_requires=[
-    'dateparser', 
-    'numpy', 
-    'logging', 
-    'pytz'],
+  name='wx_logs',
+  version='0.1.1',
+  author='Tom Hayden',
+  author_email='thayden@gmail.com',
+  packages=find_packages(exclude=['tests', 'tests.*']),
+  include_package_data=True,
+  install_requires=['dateparser', 'numpy', 'pytz'],
   entry_points={
     'console_scripts': [],
   },
