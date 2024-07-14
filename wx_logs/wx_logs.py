@@ -84,6 +84,27 @@ class wx_logs:
       self.set_qa_status('FAIL')
       logger.warning(message)
 
+  def _dewpoint_to_relative_humidity(self, temp_c, dewpoint_c):
+    if dewpoint_c > temp_c: # fully saturated
+      return 1.0
+    e_temp = 6.11 * math.pow(10, (7.5 * temp_c) / (237.3 + temp_c))
+    e_dew = 6.11 * math.pow(10, (7.5 * dewpoint_c) / (237.3 + dewpoint_c))
+    relative_humidity = 100 * (e_dew / e_temp)
+    return relative_humidity
+
+  # when adding a dewpoint, actually add it to both
+  # the dewpoint array and the humidity calculation array
+  def add_dewpoint_c(self, dewpoint_c, air_temp_c, dt):
+    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    if dewpoint_c is None:
+      return
+    if air_temp_c is None:
+      self.handle_error("Cannot calculate dewpoint without temperature")
+      return
+    rh = self._dewpoint_to_relative_humidity(air_temp_c, dewpoint_c)
+    self.air_dewpoint_c_values.append((dt, dewpoint_c))
+    self.air_humidity_values.append((dt, rh))
+
   def add_temp_c(self, value, dt):
     if value is None:
       return

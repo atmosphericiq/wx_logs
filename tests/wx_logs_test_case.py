@@ -21,6 +21,13 @@ class WxLogsTestCase(unittest.TestCase):
     self.assertEqual(a.get_temp_c('MEAN'), None)
     self.assertEqual(a.get_qa_status(), 'FAIL')
 
+  def test_using_dewpoint_to_humidity(self):
+    a = wx_logs('BOUY')
+    self.assertAlmostEqual(a._dewpoint_to_relative_humidity(10, 5), 71.04, places=2)
+    self.assertEqual(a._dewpoint_to_relative_humidity(10, 10), 100)
+    a.add_dewpoint_c(5, 10, datetime.datetime.now())
+    self.assertEqual(a.get_humidity('MEAN'), 71.04)
+
   def test_pm25(self):
     a = wx_logs('STATION')
     a.add_pm25(10, datetime.datetime.now())
