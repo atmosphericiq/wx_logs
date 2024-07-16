@@ -16,7 +16,7 @@ class WxLogsTestCase(unittest.TestCase):
 
   def test_temp_of_100c_throws_error(self):
     a = wx_logs('BOUY')
-    a.set_on_error('IGNORE')
+    a.set_on_error('FAIL_QA')
     a.add_temp_c(100, datetime.datetime.now())
     self.assertEqual(a.get_temp_c('MEAN'), None)
     self.assertEqual(a.get_qa_status(), 'FAIL')
@@ -105,7 +105,7 @@ class WxLogsTestCase(unittest.TestCase):
 
   def test_negative_pm25_throws_exception(self):
     a = wx_logs('STATION')
-    self.assertRaises(ValueError, a.add_pm25, -10, datetime.datetime.now())
+    self.assertRaises(ValueError, a.add_pm25, -20, datetime.datetime.now())
 
   def test_more_complex_pm25(self):
     a = wx_logs('STATION')
@@ -191,11 +191,19 @@ class WxLogsTestCase(unittest.TestCase):
 
   def test_invalid_humidity_values(self):
     a = wx_logs('STATION')
-    a.set_on_error('IGNORE')
+    a.set_on_error('FAIL_QA')
     a.add_humidity(101, datetime.datetime.now())
     a.add_humidity(-1, datetime.datetime.now())
     self.assertEqual(a.get_humidity('MEAN'), None)
     self.assertEqual(a.get_qa_status(), 'FAIL')
+
+  def tests_invalid_humidity_is_ignored(self):
+    a = wx_logs('STATION')
+    a.set_on_error('IGNORE')
+    a.add_humidity(101, datetime.datetime.now())
+    a.add_humidity(-1, datetime.datetime.now())
+    self.assertEqual(a.get_humidity('MEAN'), None)
+    self.assertEqual(a.get_qa_status(), 'PASS') 
 
   def test_humidity_field(self):
     a = wx_logs('BOUY')

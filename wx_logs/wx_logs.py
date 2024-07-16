@@ -75,7 +75,7 @@ class wx_logs:
 
   def set_on_error(self, on_error):
     on_error = on_error.upper()
-    if on_error not in ['RAISE', 'IGNORE']:
+    if on_error not in ['RAISE', 'IGNORE', 'FAIL_QA']:
       raise ValueError(f"Invalid on_error: {on_error}")
     self.on_error = on_error
 
@@ -88,9 +88,13 @@ class wx_logs:
   def handle_error(self, message):
     if self.on_error == 'RAISE':
       raise ValueError(message)
-    else:
+    elif self.on_error == 'FAIL_QA':
       self.set_qa_status('FAIL')
       logger.warning(message)
+    elif self.on_error == 'IGNORE':
+      logger.warning(message)
+    else:
+      raise ValueError(f"Invalid on_error: {self.on_error}")
 
   def _dewpoint_to_relative_humidity(self, temp_c, dewpoint_c):
     if dewpoint_c > temp_c: # fully saturated
@@ -138,8 +142,14 @@ class wx_logs:
       return
     self.air_humidity_values[dt] = value
   
+  # according to EPA negative values are allowed
+  # https://www.epa.gov/sites/default/files/2016-10/documents/pm2.5_continuous_monitoring.pdf
+  # but for now, lets coalesce to zero
+  # but less than -15 is bad!
   def add_pm25(self, value, dt):
-    value = self._simple_confirm_value_in_range('pm25', value, 0, 1000)
+    value = self._simple_confirm_value_in_range('pm25', value, -15, 1000)
+    if value < 0:
+      value = 0
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
@@ -356,13 +366,6 @@ class wx_logs:
   # 3. call add_wind for those vectors
   # do this in an O(1) fashion
   def _recalculate_wind_vectors(self):
-
-    # unique speeds are in 
-    # self.wind_speed_values
-    # unique bearings are in
-    # self.wind_bearing_values
-    # final calced field is in
-    # self.wind_vectors
     calculated_dts = self.wind_vectors.keys()
     not_calculated_dts = set(self.wind_speed_values.keys()) - set(calculated_dts) 
     for dt in not_calculated_dts:
@@ -374,15 +377,6 @@ class wx_logs:
         if bearing is None:
           continue
         self.add_wind(speed, bearing, dt, False)
-
-    #unique_vectors = set([dt, speed, bearing] for dt, speed in \
-    #  self.wind_speed_values.items() for dt, bearing in self.wind_bearing_values)
-    #for dt, speed, bearing in unique_vectors:
-    #  if speed is None or bearing is None:
-    #    continue
-    #  wind_vector_dts = [v[0] for v in self.wind_vectors]
-    #  if dt not in wind_vector_dts:
-    #    self.add_wind(speed, bearing, dt, False)
 
   def add_wind(self, speed, bearing, dt, add_values=True):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
