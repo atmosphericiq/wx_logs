@@ -179,12 +179,12 @@ class wx_logs:
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     self.so2_values.append((dt, value))
 
-  def _simple_confirm_value_in_range(self, value, min, max):
+  def _simple_confirm_value_in_range(self, value, min_value, max_value):
     if value is None or value == '':
       return
     value = float(value)
-    if value < 0:
-      self.handle_error(f"Invalid {field_name} value: {value}")
+    if value < min_value or value > max_value:
+      self.handle_error(f"Invalid value: {value}")
       return
     return value
 

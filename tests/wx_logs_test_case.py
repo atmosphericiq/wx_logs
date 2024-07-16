@@ -34,6 +34,17 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_pm25(20, datetime.datetime.now())
     self.assertEqual(a.get_pm25('MEAN'), 15)
 
+  def test_negative_pm25_throws_exception(self):
+    a = wx_logs('STATION')
+    self.assertRaises(ValueError, a.add_pm25, -10, datetime.datetime.now())
+
+  def test_more_complex_pm25(self):
+    a = wx_logs('STATION')
+    a.add_pm25(10, datetime.datetime.now())
+    a.add_pm25(20, datetime.datetime.now())
+    a.add_pm25(30, datetime.datetime.now())
+    self.assertEqual(a.get_pm25('MEAN'), 20)
+
   def test_pm10(self):
     a = wx_logs('STATION')
     a.add_pm10(10, datetime.datetime.now())
