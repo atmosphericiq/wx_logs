@@ -172,9 +172,11 @@ class wx_logs:
     return self._get_value_metric('so2_values', measure)
 
   def add_pm10(self, value, dt):
-    value = self._simple_confirm_value_in_range('pm10', value, 0, 1000)
+    value = self._simple_confirm_value_in_range('pm10', value, -15, 1000)
     if value is None:
       return
+    if value < 0:
+      value = 0
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     self.pm_10_values[dt] = value
 
