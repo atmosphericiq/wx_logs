@@ -192,15 +192,22 @@ class WxLogsTestCase(unittest.TestCase):
   def test_invalid_humidity_values(self):
     a = wx_logs('STATION')
     a.set_on_error('FAIL_QA')
-    a.add_humidity(101, datetime.datetime.now())
+    a.add_humidity(111, datetime.datetime.now())
     a.add_humidity(-1, datetime.datetime.now())
     self.assertEqual(a.get_humidity('MEAN'), None)
     self.assertEqual(a.get_qa_status(), 'FAIL')
 
-  def tests_invalid_humidity_is_ignored(self):
+  def test_vector_sum_wind_speed_and_regular(self):
+    a = wx_logs('BOUY')
+    a.add_wind(10, 0, datetime.datetime.now())
+    a.add_wind(10, 90, datetime.datetime.now())
+    self.assertEqual(a.get_wind_speed('MEAN'), 10)
+    self.assertEqual(a.get_wind('VECTOR_MEAN'), (7.07, 45, 'NE'))
+
+  def test_invalid_humidity_is_ignored(self):
     a = wx_logs('STATION')
     a.set_on_error('IGNORE')
-    a.add_humidity(101, datetime.datetime.now())
+    a.add_humidity(111, datetime.datetime.now())
     a.add_humidity(-1, datetime.datetime.now())
     self.assertEqual(a.get_humidity('MEAN'), None)
     self.assertEqual(a.get_qa_status(), 'PASS') 
@@ -211,6 +218,12 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_humidity(50, datetime.datetime.now())
     a.add_humidity(100, datetime.datetime.now())
     self.assertEqual(a.get_humidity('MEAN'), 83.33)
+
+  def test_adding_a_none_to_pressure(self):
+    a = wx_logs('STATION')
+    a.add_pressure_hpa(None, datetime.datetime.now())
+    a.add_pressure_hpa(1015.02, datetime.datetime.now())
+    self.assertEqual(a.get_pressure_hpa('MEAN'), 1015.02)
 
   def test_invalid_long_and_lat(self):
     a = wx_logs('BOUY')
@@ -285,6 +298,17 @@ class WxLogsTestCase(unittest.TestCase):
     a.merge_in(b)
     self.assertEqual(a.get_temp_c('MEAN'), 2)
     self.assertEqual(a.get_humidity('MEAN'), 83.33)
+
+  def test_serialize_both_vector_mean_and_mean_for_wind(self):
+    a = wx_logs('BOUY')
+    a.add_wind(10, 0, datetime.datetime.now())
+    a.add_wind(10, 90, datetime.datetime.now())
+    self.assertEqual(a.get_wind_speed('MEAN'), 10)
+    self.assertEqual(a.get_wind('VECTOR_MEAN'), (7.07, 45, 'NE'))
+
+    serialized = json.loads(a.serialize_summary())
+    self.assertEqual(serialized['air']['wind']['speed']['mean'], 10)
+    self.assertEqual(serialized['air']['wind']['speed']['vector_mean'], 7.07)
 
   def test_location_field(self):
     a = wx_logs('STATION')

@@ -149,7 +149,7 @@ class wx_logs:
   # but for now, lets coalesce to zero
   # but less than -15 is bad!
   def add_pm25(self, value, dt):
-    value = self._simple_confirm_value_in_range('pm25', value, -15, 1000)
+    value = self._simple_confirm_value_in_range('pm25', value, -15, 10000)
     if value < 0:
       value = 0
     if value is None:
@@ -174,7 +174,7 @@ class wx_logs:
     return self._get_value_metric('so2_values', measure)
 
   def add_pm10(self, value, dt):
-    value = self._simple_confirm_value_in_range('pm10', value, -15, 1000)
+    value = self._simple_confirm_value_in_range('pm10', value, -15, 10000)
     if value is None:
       return
     if value < 0:
@@ -210,7 +210,7 @@ class wx_logs:
     if value == '':
       value = None
     if value is not None:
-      value = round(float(value), self._precision)
+      value = float(value)
       value = self._simple_confirm_value_in_range('pressure_hpa', value, 500, 1500)
     self.air_pressure_hpa_values[dt] = value
 
@@ -250,13 +250,13 @@ class wx_logs:
       raise ValueError(f"Invalid datetime object: {dt}")
 
   def _mean(self, values):
-    return round(np.mean([v[1] for v in values]), self._precision)
+    return round(np.mean([v[1] for v in values if v[1] is not None]), self._precision)
 
   def _min(self, values):
-    return round(min([v[1] for v in values]), self._precision)
+    return round(min([v[1] for v in values if v[1] is not None]), self._precision)
 
   def _max(self, values):
-    return round(max([v[1] for v in values]), self._precision)
+    return round(max([v[1] for v in values if v[1] is not None]), self._precision)
 
   def get_temp_c(self, measure='MEAN'):
     measure = measure.upper()
@@ -411,6 +411,10 @@ class wx_logs:
   def _get_value_metric(self, field_name, measure):
     field = getattr(self, field_name)
     field_values = list(field.items())
+
+    # remove any none values
+    field_values = [v for v in field_values if v is not None]
+
     if len(field_values) == 0:
       return None
     if measure == 'MEAN':
@@ -485,6 +489,9 @@ class wx_logs:
         'wind': {
           'speed': {
             'vector_mean': speed,
+            'mean': self.get_wind_speed('MEAN'),
+            'max': self.get_wind_speed('MAX'),
+            'min': self.get_wind_speed('MIN'),
             'count': len(self.wind_values)
           },
           'bearing': {
@@ -507,7 +514,13 @@ class wx_logs:
           'count': len(self.pm_10_values),
           'date_range': self.get_date_range('pm_10')
         },
-        'ozone_ppb': self.get_ozone_ppb(),
+        'ozone_ppb': {
+          'mean': self.get_ozone_ppb('MEAN'),
+          'min': self.get_ozone_ppb('MIN'),
+          'max': self.get_ozone_ppb('MAX'),
+          'count': len(self.ozone_ppb_values),
+          'date_range': self.get_date_range('ozone_ppb')
+        },
         'so2': {
           'mean': self.get_so2('MEAN'),
           'min': self.get_so2('MIN'),
