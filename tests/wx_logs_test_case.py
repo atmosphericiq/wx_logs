@@ -34,6 +34,14 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_pm25(20, datetime.datetime.now())
     self.assertEqual(a.get_pm25('MEAN'), 15)
 
+  def test_add_wind_speed_knots(self):
+    a = wx_logs('STATION')
+
+    # these will convert to m/s
+    a.add_wind_speed_knots(10, datetime.datetime.now())
+    a.add_wind_speed_knots(20, datetime.datetime.now())
+    self.assertEqual(a.get_wind_speed('MEAN'), 7.72)
+
   def test_negative_pm25_throws_exception(self):
     a = wx_logs('STATION')
     self.assertRaises(ValueError, a.add_pm25, -10, datetime.datetime.now())

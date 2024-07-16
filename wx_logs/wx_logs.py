@@ -302,7 +302,15 @@ class wx_logs:
 
   def get_wind_speed(self, measure='MEAN'):
     measure = measure.upper()
-    return self._get_value_metric('wind_values', measure)
+    return self._get_value_metric('wind_speed_values', measure)
+
+  def add_wind_speed_knots(self, speed_knots, dt):
+    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    if speed_knots == '':
+      speed_knots = None
+    if speed_knots is not None:
+      speed_knots = float(speed_knots)
+    self.add_wind_speed(speed_knots * 0.514444, dt)
 
   def add_wind_speed(self, speed_m_s, dt):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
