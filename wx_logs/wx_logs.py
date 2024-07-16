@@ -346,7 +346,6 @@ class wx_logs:
       speed_m_s = round(float(speed_m_s), self._precision)
       speed_m_s = self._simple_confirm_value_in_range('speed_m_s', speed_m_s, 0, 100)
     self.wind_speed_values[dt] = speed_m_s
-    self._recalculate_wind_vectors()
 
   def add_wind_bearing(self, bearing, dt):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
@@ -358,7 +357,6 @@ class wx_logs:
         bearing += 360
       assert bearing >= 0 and bearing <= 360, 'Invalid wind bearing'
     self.wind_bearing_values[dt] = bearing
-    self._recalculate_wind_vectors()
 
   # three step process
   # 1. find the unique pairs of speed, bearing dt values
@@ -441,6 +439,7 @@ class wx_logs:
   # generates a JSON dictionary of the log
   # but only includes summary information instead of all teh values
   def serialize_summary(self):
+    self._recalculate_wind_vectors() # calculate any leftover wind vectors
     (speed, bearing, dir_string) = self.get_wind('VECTOR_MEAN')
     return json.dumps({
       'type': self._reading_type,
