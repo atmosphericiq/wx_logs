@@ -365,7 +365,10 @@ class wx_logs:
       bearing = round(float(bearing), self._precision)
       if bearing < 0:
         bearing += 360
-      assert bearing >= 0 and bearing <= 360, 'Invalid wind bearing'
+
+      # validate bearing between 0 and 360
+      self._simple_confirm_value_in_range('bearing', bearing, 0, 360)
+
     self.wind_bearing_values[dt] = bearing
 
   # three step process

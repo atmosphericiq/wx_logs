@@ -1,0 +1,4 @@
+
+50572  python3 setup.py sdist
+50573  twine upload dist/*
+

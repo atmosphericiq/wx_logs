@@ -243,6 +243,20 @@ class WxLogsTestCase(unittest.TestCase):
     self.assertEqual(wind_vector[1], 45)
     self.assertEqual(wind_vector[2], 'NE')
     self.assertEqual(a.get_wind_speed('MEAN'), 10)
+    self.assertEqual(a.get_wind_speed('MIN'), 10)
+    self.assertEqual(a.get_wind_speed('MAX'), 10)
+
+  def test_wind_speed_with_different_max_mins(self):
+    a = wx_logs('BOUY')
+    a.add_wind_speed(10, '2020-04-02 12:33:09')
+    a.add_wind_bearing(90, '2020-04-02 12:33:09')
+    a.add_wind_speed(20, '2020-04-02 12:34:09')
+    a.add_wind_bearing(0, '2020-04-02 12:34:09')
+    a.add_wind_speed(30, '2020-04-02 12:35:09')
+    a.add_wind_bearing(-90, '2020-04-02 12:35:09')
+    self.assertEqual(a.get_wind_speed('MEAN'), 20)
+    self.assertEqual(a.get_wind_speed('MIN'), 10)
+    self.assertEqual(a.get_wind_speed('MAX'), 30)
 
   def test_wind_speed_and_dir_seperate_more_complex(self):
     a = wx_logs('BOUY')
