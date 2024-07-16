@@ -136,7 +136,7 @@ class wx_logs:
     self.air_humidity_values.append((dt, value))
   
   def add_pm25(self, value, dt):
-    value = self._simple_confirm_value_in_range(value, 0, 1000)
+    value = self._simple_confirm_value_in_range('pm25', value, 0, 1000)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
@@ -159,32 +159,32 @@ class wx_logs:
     return self._get_value_metric('so2_values', measure)
 
   def add_pm10(self, value, dt):
-    value = self._simple_confirm_value_in_range(value, 0, 1000)
+    value = self._simple_confirm_value_in_range('pm10', value, 0, 1000)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     self.pm_10_values.append((dt, value))
 
   def add_ozone_ppb(self, value, dt):
-    value = self._simple_confirm_value_in_range(value, 0, 1000)
+    value = self._simple_confirm_value_in_range('ozone', value, 0, 1000)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     self.ozone_ppb_values.append((dt, value))
 
   def add_so2(self, value, dt):
-    value = self._simple_confirm_value_in_range(value, 0, 1000)
+    value = self._simple_confirm_value_in_range('so2', value, 0, 1000)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     self.so2_values.append((dt, value))
 
-  def _simple_confirm_value_in_range(self, value, min_value, max_value):
+  def _simple_confirm_value_in_range(self, field_name, value, min_value, max_value):
     if value is None or value == '':
       return
     value = float(value)
     if value < min_value or value > max_value:
-      self.handle_error(f"Invalid value: {value}")
+      self.handle_error(f"Invalid value for {field_name}: {value}")
       return
     return value
 
@@ -288,7 +288,7 @@ class wx_logs:
         total_y += y
         count += 1
       if count == 0:
-        return None
+        return (None, None, None)
       avg_speed = np.sqrt(total_x**2 + total_y**2) / count
       bearing_rad = np.arctan2(total_x, total_y)
       bearing_deg = np.degrees(bearing_rad)
@@ -318,7 +318,7 @@ class wx_logs:
       speed_m_s = None
     if speed_m_s is not None:
       speed_m_s = round(float(speed_m_s), self._precision)
-      assert speed_m_s >= 0, 'Invalid wind speed'
+      speed_m_s = self._simple_confirm_value_in_range('speed_m_s', speed_m_s, 0, 100)
     self.wind_speed_values.append((dt, speed_m_s))
     self._recalculate_wind_vectors()
 

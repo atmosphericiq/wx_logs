@@ -34,6 +34,45 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_pm25(20, datetime.datetime.now())
     self.assertEqual(a.get_pm25('MEAN'), 15)
 
+  def test_make_Sure_negative_temps_are_ok(self):
+    a = wx_logs('STATION')
+    a.add_temp_c(-10, datetime.datetime.now())
+    a.add_temp_c(-20, datetime.datetime.now())
+    self.assertEqual(a.get_temp_c('MEAN'), -15)
+
+  def test_serialize_summary_when_no_wind_set(self):
+    a = wx_logs('BOUY')
+    a.add_temp_c(1, datetime.datetime.now())
+    a.add_temp_c(2, datetime.datetime.now())
+    a.add_humidity(100, datetime.datetime.now())
+    a.add_humidity(50, datetime.datetime.now())
+    a.add_humidity(100, datetime.datetime.now())
+    a.add_pm25(10, datetime.datetime.now())
+    a.add_pm10(10, datetime.datetime.now())
+    a.set_location(41.87, -87.62)
+    a.set_station_id('BOUY')
+    a.set_station_name('BOUY NAME')
+    a.set_station_owner('BOUY OWNER')
+    a.set_timezone('UTC')
+    a.set_on_error('IGNORE')
+
+    summary = json.loads(a.serialize_summary())
+
+    self.assertEqual(summary['type'], 'BOUY')
+    self.assertEqual(summary['air']['temp_c']['mean'], 1.5)
+    self.assertEqual(summary['air']['temp_c']['min'], 1)
+    self.assertEqual(summary['air']['temp_c']['max'], 2)
+    self.assertEqual(summary['air']['humidity']['mean'], 83.33)
+    self.assertEqual(summary['air']['humidity']['min'], 50)
+    self.assertEqual(summary['air']['humidity']['max'], 100)
+    self.assertEqual(summary['air']['pm25']['mean'], 10)
+    self.assertEqual(summary['air']['pm10']['count'], 1)
+    self.assertEqual(summary['station']['location']['latitude'], 41.87)
+    self.assertEqual(summary['station']['location']['longitude'], -87.62)
+    self.assertEqual(summary['station']['id'], 'BOUY')
+    self.assertEqual(summary['station']['name'], 'BOUY NAME')
+    self.assertEqual(summary['station']['owner'], 'BOUY OWNER')
+
   def test_add_wind_speed_knots(self):
     a = wx_logs('STATION')
 
