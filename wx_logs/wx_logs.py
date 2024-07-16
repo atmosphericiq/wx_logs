@@ -26,23 +26,23 @@ class wx_logs:
     self.qa_status = 'PASS'
     self.on_error = 'RAISE'
 
-    self.wind_vectors = []
-    self.wind_values = []
-    self.air_temp_c_values = []
-    self.air_pressure_hpa_values = []
-    self.air_humidity_values = []
-    self.air_dewpoint_c_values = []
+    self.wind_vectors = {}
+    self.wind_values = {}
+    self.air_temp_c_values = {}
+    self.air_pressure_hpa_values = {}
+    self.air_humidity_values = {}
+    self.air_dewpoint_c_values = {}
 
     # also store wind speed and bearing as sep
     # values for easier access
-    self.wind_speed_values = []
-    self.wind_bearing_values = []
+    self.wind_speed_values = {}
+    self.wind_bearing_values = {}
 
     # pm25 and pm10 are ug/m3
-    self.pm_25_values = []
-    self.pm_10_values = []
-    self.ozone_ppb_values = []
-    self.so2_values = []
+    self.pm_25_values = {}
+    self.pm_10_values = {}
+    self.ozone_ppb_values = {}
+    self.so2_values = {}
 
   def get_type(self):
     return self._reading_type
@@ -82,6 +82,9 @@ class wx_logs:
   def get_qa_status(self):
     return self.qa_status
 
+  def is_qa_pass(self):
+    return self.qa_status == 'PASS'
+
   def handle_error(self, message):
     if self.on_error == 'RAISE':
       raise ValueError(message)
@@ -107,8 +110,8 @@ class wx_logs:
       self.handle_error("Cannot calculate dewpoint without temperature")
       return
     rh = self._dewpoint_to_relative_humidity(air_temp_c, dewpoint_c)
-    self.air_dewpoint_c_values.append((dt, dewpoint_c))
-    self.air_humidity_values.append((dt, rh))
+    self.air_dewpoint_c_values[dt] = dewpoint_c
+    self.air_humidity_values[dt] = rh
 
   def add_temp_c(self, value, dt):
     if value is None:
@@ -123,7 +126,7 @@ class wx_logs:
       self.handle_error(f"Invalid temperature value: {value}")
       return
 
-    self.air_temp_c_values.append((dt, value))
+    self.air_temp_c_values[dt] = value
 
   def add_humidity(self, value, dt):
     if value is None or value == '':
@@ -133,14 +136,14 @@ class wx_logs:
     if value < 0 or value > 100:
       self.handle_error(f"Invalid humidity value: {value}")
       return
-    self.air_humidity_values.append((dt, value))
+    self.air_humidity_values[dt] = value
   
   def add_pm25(self, value, dt):
     value = self._simple_confirm_value_in_range('pm25', value, 0, 1000)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    self.pm_25_values.append((dt, value))
+    self.pm_25_values[dt] = value
 
   def get_pm25(self, measure='MEAN'):
     measure = measure.upper()
@@ -163,21 +166,21 @@ class wx_logs:
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    self.pm_10_values.append((dt, value))
+    self.pm_10_values[dt] = value
 
   def add_ozone_ppb(self, value, dt):
     value = self._simple_confirm_value_in_range('ozone', value, 0, 1000)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    self.ozone_ppb_values.append((dt, value))
+    self.ozone_ppb_values[dt] = value
 
   def add_so2(self, value, dt):
     value = self._simple_confirm_value_in_range('so2', value, 0, 1000)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    self.so2_values.append((dt, value))
+    self.so2_values[dt] = value
 
   def _simple_confirm_value_in_range(self, field_name, value, min_value, max_value):
     if value is None or value == '':
@@ -190,7 +193,12 @@ class wx_logs:
 
   def add_pressure_hpa(self, value, dt):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    self.air_pressure_hpa_values.append((dt, value))
+    if value == '':
+      value = None
+    if value is not None:
+      value = round(float(value), self._precision)
+      value = self._simple_confirm_value_in_range('pressure_hpa', value, 500, 1500)
+    self.air_pressure_hpa_values[dt] = value
 
   # merge in another wx_log by copying the values
   # from that one into this one
@@ -199,9 +207,15 @@ class wx_logs:
       raise ValueError("Cannot merge logs with different locations")
     if self._reading_type != other_log.get_type():
       raise ValueError("Cannot merge logs of different types")
-    self.air_temp_c_values.extend(other_log.air_temp_c_values)
-    self.air_humidity_values.extend(other_log.air_humidity_values)
-    self.air_pressure_hpa_values.extend(other_log.air_pressure_hpa_values)
+    self.air_temp_c_values.update(other_log.air_temp_c_values)
+    self.air_humidity_values.update(other_log.air_humidity_values)
+    self.air_pressure_hpa_values.update(other_log.air_pressure_hpa_values)
+    self.wind_values.update(other_log.wind_values)
+    self.wind_vectors.update(other_log.wind_vectors)
+    self.pm_25_values.update(other_log.pm_25_values)
+    self.pm_10_values.update(other_log.pm_10_values)
+    self.ozone_ppb_values.update(other_log.ozone_ppb_values)
+    self.so2_values.update(other_log.so2_values)
 
   def set_timezone(self, tz):
     try:
@@ -265,8 +279,10 @@ class wx_logs:
       raise ValueError(f"Invalid field name: {field_name}")
     if len(values) == 0:
       return None
-    min_date = min(values, key=lambda x: x[0])[0]
-    max_date = max(values, key=lambda x: x[0])[0]
+
+    keys = list(values.keys())
+    min_date = min(keys)
+    max_date = max(keys)
     return (min_date, max_date)
 
   def _wind_to_vector(self, bearing, speed):
@@ -283,7 +299,7 @@ class wx_logs:
       total_x = 0
       total_y = 0
       count = 0
-      for dt, (x, y) in self.wind_vectors:
+      for dt, (x, y) in self.wind_vectors.items():
         total_x += x
         total_y += y
         count += 1
@@ -319,7 +335,7 @@ class wx_logs:
     if speed_m_s is not None:
       speed_m_s = round(float(speed_m_s), self._precision)
       speed_m_s = self._simple_confirm_value_in_range('speed_m_s', speed_m_s, 0, 100)
-    self.wind_speed_values.append((dt, speed_m_s))
+    self.wind_speed_values[dt] = speed_m_s
     self._recalculate_wind_vectors()
 
   def add_wind_bearing(self, bearing, dt):
@@ -331,22 +347,42 @@ class wx_logs:
       if bearing < 0:
         bearing += 360
       assert bearing >= 0 and bearing <= 360, 'Invalid wind bearing'
-    self.wind_bearing_values.append((dt, bearing))
+    self.wind_bearing_values[dt] = bearing
     self._recalculate_wind_vectors()
 
   # three step process
   # 1. find the unique pairs of speed, bearing dt values
   # 2. see which ones are NOT in wind_vectors
   # 3. call add_wind for those vectors
+  # do this in an O(1) fashion
   def _recalculate_wind_vectors(self):
-    unique_vectors = set([(dt, speed, bearing) for dt, speed in \
-      self.wind_speed_values for dt, bearing in self.wind_bearing_values])
-    for dt, speed, bearing in unique_vectors:
-      if speed is None or bearing is None:
+
+    # unique speeds are in 
+    # self.wind_speed_values
+    # unique bearings are in
+    # self.wind_bearing_values
+    # final calced field is in
+    # self.wind_vectors
+    calculated_dts = self.wind_vectors.keys()
+    not_calculated_dts = set(self.wind_speed_values.keys()) - set(calculated_dts) 
+    for dt in not_calculated_dts:
+      speed = self.wind_speed_values[dt]
+      if speed is None:
         continue
-      wind_vector_dts = [v[0] for v in self.wind_vectors]
-      if dt not in wind_vector_dts:
+      if dt in self.wind_bearing_values.keys():
+        bearing = self.wind_bearing_values[dt]
+        if bearing is None:
+          continue
         self.add_wind(speed, bearing, dt, False)
+
+    #unique_vectors = set([dt, speed, bearing] for dt, speed in \
+    #  self.wind_speed_values.items() for dt, bearing in self.wind_bearing_values)
+    #for dt, speed, bearing in unique_vectors:
+    #  if speed is None or bearing is None:
+    #    continue
+    #  wind_vector_dts = [v[0] for v in self.wind_vectors]
+    #  if dt not in wind_vector_dts:
+    #    self.add_wind(speed, bearing, dt, False)
 
   def add_wind(self, speed, bearing, dt, add_values=True):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
@@ -364,14 +400,15 @@ class wx_logs:
       speed = float(speed)
       speed = round(speed, self._precision)
       assert speed >= 0, 'Invalid wind speed'
-    self.wind_vectors.append((dt, self._wind_to_vector(bearing, speed)))
-    self.wind_values.append((dt, speed, bearing))
+    self.wind_vectors[dt] = self._wind_to_vector(bearing, speed)
+    self.wind_values[dt] = (speed, bearing)
     if add_values == True:
-      self.wind_speed_values.append((dt, speed))
-      self.wind_bearing_values.append((dt, bearing))
+      self.wind_speed_values[dt] = speed
+      self.wind_bearing_values[dt] = bearing
 
   def _get_value_metric(self, field_name, measure):
-    field_values = getattr(self, field_name)
+    field = getattr(self, field_name)
+    field_values = list(field.items())
     if len(field_values) == 0:
       return None
     if measure == 'MEAN':

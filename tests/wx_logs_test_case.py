@@ -73,6 +73,28 @@ class WxLogsTestCase(unittest.TestCase):
     self.assertEqual(summary['station']['name'], 'BOUY NAME')
     self.assertEqual(summary['station']['owner'], 'BOUY OWNER')
 
+  def test_pressure_value_as_string(self):
+    a = wx_logs('STATION')
+    a.add_pressure_hpa(1000, '2020-04-02 12:33:09')
+    a.add_pressure_hpa('1000', '2020-04-02 12:34:09')
+    a.add_pressure_hpa('1000', datetime.datetime.now())
+    self.assertEqual(a.get_pressure_hpa('MEAN'), 1000)
+
+  def test_negative_pressure_throws_Exception(self):
+    a = wx_logs('STATION')
+    self.assertRaises(ValueError, a.add_pressure_hpa, -10, datetime.datetime.now())
+
+  def test_is_qa_pass(self):
+    a = wx_logs('STATION')
+    a.add_temp_c(1, datetime.datetime.now())
+    a.add_temp_c(2, datetime.datetime.now())
+    self.assertEqual(a.get_qa_status(), 'PASS')
+    self.assertEqual(a.is_qa_pass(), True)
+
+  def test_zero_pressure_throws_Exception(self):
+    a = wx_logs('STATION')
+    self.assertRaises(ValueError, a.add_pressure_hpa, 0, datetime.datetime.now())
+
   def test_add_wind_speed_knots(self):
     a = wx_logs('STATION')
 
@@ -155,7 +177,7 @@ class WxLogsTestCase(unittest.TestCase):
   def test_dates_as_strings(self):
     a = wx_logs('BOUY')
     a.add_temp_c(1, '2018-01-01 00:00:00')
-    a.add_temp_c(2, '2018-01-01 00:00:00')
+    a.add_temp_c(2, '2018-02-01 00:00:00')
     self.assertEqual(a.get_temp_c('MEAN'), 1.5)
 
   def test_min_max_dates(self):
