@@ -137,9 +137,11 @@ class wx_logs:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     value = round(float(value), 0)
-    if value < 0 or value > 100:
+    if value < 0 or value > 110:
       self.handle_error(f"Invalid humidity value: {value}")
       return
+    if value > 100:
+      value = 100
     self.air_humidity_values[dt] = value
   
   # according to EPA negative values are allowed
