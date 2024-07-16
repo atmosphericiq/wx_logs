@@ -268,7 +268,7 @@ class wx_logs:
 
   # returns the min and max dates in the dt part of the tuple
   # returns a tuple 
-  def get_date_range(self, field_name='air_temp_c'):
+  def get_date_range(self, field_name='air_temp_c', isoformat=True):
     if field_name == 'air_temp_c':
       values = self.air_temp_c_values
     elif field_name == 'air_humidity':
@@ -293,6 +293,11 @@ class wx_logs:
     keys = list(values.keys())
     min_date = min(keys)
     max_date = max(keys)
+
+    if isoformat:
+      min_date = min_date.isoformat()
+      max_date = max_date.isoformat()
+
     return (min_date, max_date)
 
   def _wind_to_vector(self, bearing, speed):
@@ -304,6 +309,7 @@ class wx_logs:
     return (x, y)
 
   def get_wind(self, measure='VECTOR_MEAN'):
+    self._recalculate_wind_vectors()
     measure = measure.upper()
     if measure == 'VECTOR_MEAN':
       total_x = 0
@@ -439,7 +445,6 @@ class wx_logs:
   # generates a JSON dictionary of the log
   # but only includes summary information instead of all teh values
   def serialize_summary(self):
-    self._recalculate_wind_vectors() # calculate any leftover wind vectors
     (speed, bearing, dir_string) = self.get_wind('VECTOR_MEAN')
     return json.dumps({
       'type': self._reading_type,
@@ -456,19 +461,22 @@ class wx_logs:
           'mean': self.get_temp_c('MEAN'),
           'min': self.get_temp_c('MIN'),
           'max': self.get_temp_c('MAX'),
-          'count': len(self.air_temp_c_values)
+          'count': len(self.air_temp_c_values),
+          'date_range': self.get_date_range('air_temp_c')
         },
         'humidity': {
           'mean': self.get_humidity('MEAN'),
           'min': self.get_humidity('MIN'),
           'max': self.get_humidity('MAX'),
-          'count': len(self.air_humidity_values)
+          'count': len(self.air_humidity_values),
+          'date_range': self.get_date_range('air_humidity')
         },
         'pressure_hpa': {
           'mean': self.get_pressure_hpa('MEAN'), 
           'min': self.get_pressure_hpa('MIN'),
           'max': self.get_pressure_hpa('MAX'),
-          'count': len(self.air_pressure_hpa_values)
+          'count': len(self.air_pressure_hpa_values),
+          'date_range': self.get_date_range('air_pressure_hpa')
         },
         'wind': {
           'speed': {
@@ -485,16 +493,24 @@ class wx_logs:
           'mean': self.get_pm25('MEAN'),
           'min': self.get_pm25('MIN'),
           'max': self.get_pm25('MAX'),
-          'count': len(self.pm_25_values)
+          'count': len(self.pm_25_values),
+          'date_range': self.get_date_range('pm_25')
         },
         'pm10': {
           'mean': self.get_pm10('MEAN'),
           'min': self.get_pm10('MIN'),
           'max': self.get_pm10('MAX'),
-          'count': len(self.pm_10_values)
+          'count': len(self.pm_10_values),
+          'date_range': self.get_date_range('pm_10')
         },
         'ozone_ppb': self.get_ozone_ppb(),
-        'so2': self.get_so2()
+        'so2': {
+          'mean': self.get_so2('MEAN'),
+          'min': self.get_so2('MIN'),
+          'max': self.get_so2('MAX'),
+          'count': len(self.so2_values),
+          'date_range': self.get_date_range('so2')
+        }
       }
     }
   )

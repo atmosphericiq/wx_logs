@@ -185,7 +185,7 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_temp_c(1, '2018-01-01 00:00:00')
     a.add_temp_c(2, '2018-01-01 00:00:00')
     a.add_temp_c(3, '2014-01-01 00:00:00')
-    (mind, maxd) = a.get_date_range('air_temp_c')
+    (mind, maxd) = a.get_date_range('air_temp_c', False)
     self.assertEqual(mind, datetime.datetime(2014, 1, 1, 0, 0))
     self.assertEqual(maxd, datetime.datetime(2018, 1, 1, 0, 0))
 
