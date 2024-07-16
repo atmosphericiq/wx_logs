@@ -129,6 +129,34 @@ class WxLogsTestCase(unittest.TestCase):
     self.assertRaises(ValueError, a.set_location, 91, 180)
     self.assertRaises(ValueError, a.set_location, -91, -180)
 
+  # need to also support adding wind speed and direction
+  # in separate calls instead of a single one
+  def test_wind_speed_and_dir_separate(self):
+    a = wx_logs('BOUY')
+    a.add_wind_speed(10, '2020-04-02 12:33:09')
+    a.add_wind_bearing(90, '2020-04-02 12:33:09')
+    a.add_wind_speed(10, '2020-04-02 12:34:09')
+    a.add_wind_bearing(0, '2020-04-02 12:34:09')
+    wind_vector = a.get_wind('VECTOR_MEAN')
+    self.assertEqual(wind_vector[0], 7.07)
+    self.assertEqual(wind_vector[1], 45)
+    self.assertEqual(wind_vector[2], 'NE')
+    self.assertEqual(a.get_wind_speed('MEAN'), 10)
+
+  def test_wind_speed_and_dir_seperate_more_complex(self):
+    a = wx_logs('BOUY')
+    a.add_wind_speed(10, '2020-04-02 12:33:09')
+    a.add_wind_bearing(90, '2020-04-02 12:33:09')
+    a.add_wind_speed(10, '2020-04-02 12:34:09')
+    a.add_wind_bearing(0, '2020-04-02 12:34:09')
+    a.add_wind_speed(10, '2020-04-02 12:35:09')
+    a.add_wind_bearing(-90, '2020-04-02 12:35:09')
+    a.add_wind_speed(14, '2023-04-02 14:35:09') # 2023
+    wind_vector = a.get_wind('VECTOR_MEAN')
+    self.assertEqual(wind_vector[0], 3.33)
+    self.assertEqual(wind_vector[1], 0)
+    self.assertEqual(wind_vector[2], 'N')
+
   # test the wind speed and direction but note that were
   # using the dominant wind direction and speed
   # so for test case, use 0 and 90 and the vector mean is 45 deg

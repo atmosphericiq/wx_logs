@@ -33,6 +33,11 @@ class wx_logs:
     self.air_humidity_values = []
     self.air_dewpoint_c_values = []
 
+    # also store wind speed and bearing as sep
+    # values for easier access
+    self.wind_speed_values = []
+    self.wind_bearing_values = []
+
     # pm25 and pm10 are ug/m3
     self.pm_25_values = []
     self.pm_10_values = []
@@ -299,7 +304,43 @@ class wx_logs:
     measure = measure.upper()
     return self._get_value_metric('wind_values', measure)
 
-  def add_wind(self, speed, bearing, dt):
+  def add_wind_speed(self, speed_m_s, dt):
+    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    if speed_m_s == '':
+      speed_m_s = None
+    if speed_m_s is not None:
+      speed_m_s = round(float(speed_m_s), self._precision)
+      assert speed_m_s >= 0, 'Invalid wind speed'
+    self.wind_speed_values.append((dt, speed_m_s))
+    self._recalculate_wind_vectors()
+
+  def add_wind_bearing(self, bearing, dt):
+    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    if bearing == '':
+      bearing = None
+    if bearing is not None:
+      bearing = round(float(bearing), self._precision)
+      if bearing < 0:
+        bearing += 360
+      assert bearing >= 0 and bearing <= 360, 'Invalid wind bearing'
+    self.wind_bearing_values.append((dt, bearing))
+    self._recalculate_wind_vectors()
+
+  # three step process
+  # 1. find the unique pairs of speed, bearing dt values
+  # 2. see which ones are NOT in wind_vectors
+  # 3. call add_wind for those vectors
+  def _recalculate_wind_vectors(self):
+    unique_vectors = set([(dt, speed, bearing) for dt, speed in \
+      self.wind_speed_values for dt, bearing in self.wind_bearing_values])
+    for dt, speed, bearing in unique_vectors:
+      if speed is None or bearing is None:
+        continue
+      wind_vector_dts = [v[0] for v in self.wind_vectors]
+      if dt not in wind_vector_dts:
+        self.add_wind(speed, bearing, dt, False)
+
+  def add_wind(self, speed, bearing, dt, add_values=True):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     if speed == '':
       speed = None
@@ -317,6 +358,9 @@ class wx_logs:
       assert speed >= 0, 'Invalid wind speed'
     self.wind_vectors.append((dt, self._wind_to_vector(bearing, speed)))
     self.wind_values.append((dt, speed, bearing))
+    if add_values == True:
+      self.wind_speed_values.append((dt, speed))
+      self.wind_bearing_values.append((dt, bearing))
 
   def _get_value_metric(self, field_name, measure):
     field_values = getattr(self, field_name)
