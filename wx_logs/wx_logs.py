@@ -333,6 +333,11 @@ class wx_logs:
     months = self.get_months(field_name)
     if len(months.keys()) < 12:
       return False
+    
+    # if any month is zero return false
+    if any([count == 0 for count in months.values()]):
+      return False
+
     counts = months.values()
     max_count = max(counts)
     threshold = 0.10 * max_count

@@ -170,6 +170,11 @@ class WxLogsTestCase(unittest.TestCase):
       6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0})
     self.assertEqual(a.is_full_year_of_data('air_temp_c'), False)
 
+  def test_is_full_year_any_month_of_zero_means_no(self):
+    a = wx_logs('STATION')
+    a.add_temp_c(1, '2020-01-01 00:00:00')
+    self.assertEqual(a.is_full_year_of_data('air_temp_c'), False)
+
   def test_is_full_year_of_data_to_be_true(self):
     a = wx_logs('STATION')
     for i in range(1, 13):
