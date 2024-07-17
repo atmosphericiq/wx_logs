@@ -285,39 +285,60 @@ class wx_logs:
     measure = measure.upper()
     return self._get_value_metric('air_pressure_hpa_values', measure)
 
+  def _string_to_field_values(self, field_name):
+    if field_name == 'air_temp_c':
+      return self.air_temp_c_values
+    elif field_name == 'air_humidity':
+      return self.air_humidity_values
+    elif field_name == 'air_pressure_hpa':
+      return self.air_pressure_hpa_values
+    elif field_name == 'wind':
+      return self.wind_values
+    elif field_name == 'pm_25':
+      return self.pm_25_values
+    elif field_name == 'pm_10':
+      return self.pm_10_values
+    elif field_name == 'ozone_ppb':
+      return self.ozone_ppb_values
+    elif field_name == 'so2':
+      return self.so2_values
+    else:
+      raise ValueError(f"Invalid field name: {field_name}")
+
   # returns the min and max dates in the dt part of the tuple
   # returns a tuple 
   def get_date_range(self, field_name='air_temp_c', isoformat=True):
-    if field_name == 'air_temp_c':
-      values = self.air_temp_c_values
-    elif field_name == 'air_humidity':
-      values = self.air_humidity_values
-    elif field_name == 'air_pressure_hpa':
-      values = self.air_pressure_hpa_values
-    elif field_name == 'wind':
-      values = self.wind_values
-    elif field_name == 'pm_25':
-      values = self.pm_25_values
-    elif field_name == 'pm_10':
-      values = self.pm_10_values
-    elif field_name == 'ozone_ppb':
-      values = self.ozone_ppb_values
-    elif field_name == 'so2':
-      values = self.so2_values
-    else:
-      raise ValueError(f"Invalid field name: {field_name}")
+    values = self._string_to_field_values(field_name)
     if len(values) == 0:
       return None
-
     keys = list(values.keys())
     min_date = min(keys)
     max_date = max(keys)
-
     if isoformat:
       min_date = min_date.isoformat()
       max_date = max_date.isoformat()
-
     return (min_date, max_date)
+
+  # returns a count of readings for a field for each month
+  def get_months(self, field_name='air_temp_c'):
+    values = self._string_to_field_values(field_name)
+    return self._get_months(list(values.keys()))
+
+  # function which looks at the months in the data
+  # and does a best effort to determine if a full year of 
+  # data is available. This is useful for determining if
+  # a station is operational. You're going to have to be 
+  # care and try to determine if the months are roughly balanced
+  def is_full_year_of_data(self, field_name='air_temp_c'):
+    months = self.get_months(field_name)
+    if len(months.keys()) < 12:
+      return False
+    counts = months.values()
+    max_count = max(counts)
+    threshold = 0.10 * max_count
+    if any([count < threshold for count in counts]):
+      return False
+    return True
 
   def _wind_to_vector(self, bearing, speed):
     if speed is None or bearing is None:
@@ -404,6 +425,37 @@ class wx_logs:
           continue
         self.add_wind(speed, bearing, dt, False)
 
+  # function which returns a dictionary of wind rose data
+  # where the keys are the bearing strings (N, NE, etc)
+  # and the values are the mean wind speed for that direction
+  def get_wind_rose(self, bins=4):
+    self._recalculate_wind_vectors()
+    if bins == 4:
+      directions = ['N', 'E', 'S', 'W']
+    elif bins == 8:
+      directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+    else:
+      raise ValueError("Only 4 or 8 bins are supported")
+
+    result = {direction: {'x': 0, 'y': 0, 'count': 0} for direction in directions}
+
+    bin_size = 360 / bins
+    for (dt, (speed, bearing)) in self.wind_values.items():
+      (x, y) = self._wind_to_vector(bearing, speed)
+      direction = self.bearing_to_direction(bearing, bins)
+      result[direction]['x'] += x
+      result[direction]['y'] += y 
+      result[direction]['count'] += 1
+
+    for direction in result.keys():
+      if result[direction]['count'] > 0:
+        mean_x = result[direction]['x'] / result[direction]['count']
+        mean_y = result[direction]['y'] / result[direction]['count']
+        result[direction] = round(np.sqrt(mean_x**2 + mean_y**2), self._precision)
+      else:
+        result[direction] = 0
+    return result
+
   def add_wind(self, speed, bearing, dt, add_values=True):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
     bearing = self._should_value_be_none(bearing)
@@ -442,6 +494,14 @@ class wx_logs:
       return self._min(field_values)
     else:
       raise ValueError(f"Invalid measure: {measure}")
+
+  # give a set of dates, return a dictionary of 
+  # {1: N} where 1 is january and N is number of values
+  def _get_months(self, date_list):
+    result = {i: 0 for i in range(1, 13)}
+    for dt in date_list:
+      result[dt.month] += 1
+    return result
 
   def set_location(self, latitude, longitude, elevation=None):
     if elevation == '':
@@ -487,21 +547,24 @@ class wx_logs:
           'min': self.get_temp_c('MIN'),
           'max': self.get_temp_c('MAX'),
           'count': len(self.air_temp_c_values),
-          'date_range': self.get_date_range('air_temp_c')
+          'date_range': self.get_date_range('air_temp_c'),
+          'full_year': self.is_full_year_of_data('air_temp_c')
         },
         'humidity': {
           'mean': self.get_humidity('MEAN'),
           'min': self.get_humidity('MIN'),
           'max': self.get_humidity('MAX'),
           'count': len(self.air_humidity_values),
-          'date_range': self.get_date_range('air_humidity')
+          'date_range': self.get_date_range('air_humidity'),
+          'full_year': self.is_full_year_of_data('air_humidity')
         },
         'pressure_hpa': {
           'mean': self.get_pressure_hpa('MEAN'), 
           'min': self.get_pressure_hpa('MIN'),
           'max': self.get_pressure_hpa('MAX'),
           'count': len(self.air_pressure_hpa_values),
-          'date_range': self.get_date_range('air_pressure_hpa')
+          'date_range': self.get_date_range('air_pressure_hpa'),
+          'full_year': self.is_full_year_of_data('air_pressure_hpa')
         },
         'wind': {
           'speed': {
@@ -549,11 +612,22 @@ class wx_logs:
     }
   )
 
-  def bearing_to_direction(self, bearing):
-    directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-      'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-    index = int((bearing + 11.25) // 22.5)
-    return directions[index % 16]
+  def bearing_to_direction(self, bearing, bins=16):
+    if bins == 4:
+      directions = ['N', 'E', 'S', 'W']
+      index = int((bearing + 45) // 90)
+      return directions[index % 4]
+    elif bins == 8:
+      directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+      index = int((bearing + 22.5) // 45)
+      return directions[index % 8]
+    elif bins == 16:
+      directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+        'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+      index = int((bearing + 11.25) // 22.5)
+      return directions[index % 16]
+    else:
+      raise ValueError("Only 4, 8, or 16 bins are supported")
 
   def get_location(self):
     return self.location

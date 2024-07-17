@@ -101,6 +101,88 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_temp_c(np.nan, datetime.datetime.now())
     self.assertEqual(a.get_temp_c('MEAN'), 1.5)
 
+  def test_4_bin_wind_rose(self):
+    a = wx_logs('STATION')
+    a.add_wind(10, 0, datetime.datetime.now())
+    a.add_wind(10, 90, datetime.datetime.now())
+    a.add_wind(10, 180, datetime.datetime.now())
+    a.add_wind(10, 270, datetime.datetime.now())
+
+    wind_rose = a.get_wind_rose(4)
+    self.assertEqual(wind_rose['N'], 10)
+    self.assertEqual(wind_rose['E'], 10)
+    self.assertEqual(wind_rose['S'], 10)
+    self.assertEqual(wind_rose['W'], 10)
+
+  def test_bearing_to_direction_4_8_16_bins(self):
+    a = wx_logs('STATION')
+    self.assertEqual(a.bearing_to_direction(0, 4), 'N')
+    self.assertEqual(a.bearing_to_direction(0, 8), 'N')
+    self.assertEqual(a.bearing_to_direction(0, 16), 'N')
+    self.assertEqual(a.bearing_to_direction(45, 4), 'E')
+    self.assertEqual(a.bearing_to_direction(45, 8), 'NE')
+    self.assertEqual(a.bearing_to_direction(45, 16), 'NE')
+    self.assertEqual(a.bearing_to_direction(90, 4), 'E')
+    self.assertEqual(a.bearing_to_direction(90, 8), 'E')
+    self.assertEqual(a.bearing_to_direction(90, 16), 'E')
+    self.assertEqual(a.bearing_to_direction(135, 4), 'S')
+    self.assertEqual(a.bearing_to_direction(135, 8), 'SE')
+    self.assertEqual(a.bearing_to_direction(135, 16), 'SE')
+
+  def test_8_bin_wind_rose(self):
+    a = wx_logs('STATION')
+    a.add_wind(10, 0, datetime.datetime.now())
+    a.add_wind(10, 45, datetime.datetime.now())
+    a.add_wind(10, 90, datetime.datetime.now())
+    a.add_wind(10, 135, datetime.datetime.now())
+    a.add_wind(10, 180, datetime.datetime.now())
+    a.add_wind(10, 225, datetime.datetime.now())
+    a.add_wind(10, 270, datetime.datetime.now())
+    a.add_wind(10, 315, datetime.datetime.now())
+
+    wind_rose = a.get_wind_rose(8)
+    self.assertEqual(wind_rose['N'], 10)
+    self.assertEqual(wind_rose['NE'], 10)
+    self.assertEqual(wind_rose['E'], 10)
+    self.assertEqual(wind_rose['SE'], 10)
+    self.assertEqual(wind_rose['S'], 10)
+    self.assertEqual(wind_rose['SW'], 10)
+    self.assertEqual(wind_rose['W'], 10)
+    self.assertEqual(wind_rose['NW'], 10)
+
+  # note that it all falls into E because 45 degrees
+  # ends up rounding to E
+  def test_4_bin_wind_rose_with_uneven_winds(self):
+    a = wx_logs('STATION')
+    a.add_wind(10, 45, datetime.datetime.now())
+    wind_rose = a.get_wind_rose(4)
+    self.assertEqual(wind_rose['N'], 0)
+    self.assertEqual(wind_rose['E'], 10)
+    self.assertEqual(wind_rose['S'], 0)
+    self.assertEqual(wind_rose['W'], 0)
+
+  def test_months_in_the_dates_fields(self):
+    a = wx_logs('STATION')
+    a.add_temp_c(1, '2020-01-01 00:00:00')
+    a.add_temp_c(2, '2020-02-01 00:00:00')
+    self.assertEqual(a.get_temp_c('MEAN'), 1.5)
+    self.assertEqual(a.get_months('air_temp_c'), {1: 1, 2: 1, 3:0, 4:0, 5:0, 
+      6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0})
+    self.assertEqual(a.is_full_year_of_data('air_temp_c'), False)
+
+  def test_is_full_year_of_data_to_be_true(self):
+    a = wx_logs('STATION')
+    for i in range(1, 13):
+      a.add_temp_c(10, f'2020-{i}-01 00:00:00')
+    self.assertEqual(a.is_full_year_of_data('air_temp_c'), True)
+
+  def test_is_full_year_of_data_with_one_month_two_x(self):
+    a = wx_logs('STATION')
+    for i in range(1, 13):
+      a.add_temp_c(10, f'2020-{i}-01 00:00:00')
+    a.add_temp_c(10, f'2021-01-01 00:00:00')
+    self.assertEqual(a.is_full_year_of_data('air_temp_c'), True)
+
   def test_nans_and_nones_in_wind_variables(self):
     a = wx_logs('STATION')
     a.add_wind(10, 0, datetime.datetime.now())
