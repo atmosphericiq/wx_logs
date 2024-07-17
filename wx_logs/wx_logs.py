@@ -118,6 +118,7 @@ class wx_logs:
     self.air_humidity_values[dt] = rh
 
   def add_temp_c(self, value, dt):
+    value = self._should_value_be_none(value)
     if value is None:
       return
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
@@ -133,9 +134,11 @@ class wx_logs:
     self.air_temp_c_values[dt] = value
 
   def add_humidity(self, value, dt):
-    if value is None or value == '':
-      return
+    value = self._should_value_be_none(value)
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    if value is None:
+      return
+
     value = round(float(value), 0)
     if value < 0 or value > 110:
       self.handle_error(f"Invalid humidity value: {value}")

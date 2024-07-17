@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 import json
 import pytz
 import datetime
@@ -81,6 +82,24 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_pressure_hpa("", datetime.datetime.now())
     a.add_pressure_hpa(None, datetime.datetime.now())
     self.assertEqual(a.get_pressure_hpa('MEAN'), 1000)
+
+  def test_putting_nan_and_none_into_humidity_mean_still_works(self):
+    a = wx_logs('STATION')
+    a.add_humidity(100, datetime.datetime.now())
+    a.add_humidity(50, datetime.datetime.now())
+    a.add_humidity(None, datetime.datetime.now())
+    a.add_humidity('', datetime.datetime.now())
+    a.add_humidity(np.nan, datetime.datetime.now())
+    self.assertEqual(a.get_humidity('MEAN'), 75)
+
+  def test_putting_nans_and_nones_into_temperature_too(self):
+    a = wx_logs('STATION')
+    a.add_temp_c(1, datetime.datetime.now())
+    a.add_temp_c(2, datetime.datetime.now())
+    a.add_temp_c(None, datetime.datetime.now())
+    a.add_temp_c('', datetime.datetime.now())
+    a.add_temp_c(np.nan, datetime.datetime.now())
+    self.assertEqual(a.get_temp_c('MEAN'), 1.5)
 
   def test_pressure_value_as_string(self):
     a = wx_logs('STATION')
