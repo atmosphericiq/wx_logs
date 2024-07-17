@@ -73,6 +73,15 @@ class WxLogsTestCase(unittest.TestCase):
     self.assertEqual(summary['station']['name'], 'BOUY NAME')
     self.assertEqual(summary['station']['owner'], 'BOUY OWNER')
 
+  def test_pressure_in_different_formats(self):
+    a = wx_logs('STATION')
+    a.add_pressure_hpa(1000, datetime.datetime.now())
+    a.add_pressure_hpa(1000.0, datetime.datetime.now())
+    a.add_pressure_hpa("1000.00", datetime.datetime.now())
+    a.add_pressure_hpa("", datetime.datetime.now())
+    a.add_pressure_hpa(None, datetime.datetime.now())
+    self.assertEqual(a.get_pressure_hpa('MEAN'), 1000)
+
   def test_pressure_value_as_string(self):
     a = wx_logs('STATION')
     a.add_pressure_hpa(1000, '2020-04-02 12:33:09')

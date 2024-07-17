@@ -205,10 +205,22 @@ class wx_logs:
       return
     return value
 
+  # interpret whether a value should be None
+  # which is none, numpy nan, empty string, etc
+  def _should_value_be_none(self, value):
+    if value is None:
+      return None
+    if isinstance(value, str) and value == '':
+      return None
+    if isinstance(value, float) and np.isnan(value):
+      return None
+    return value
+
   def add_pressure_hpa(self, value, dt):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    if value == '':
-      value = None
+    value = self._should_value_be_none(value)
+    if value is None:
+      return
     if value is not None:
       value = float(value)
       value = self._simple_confirm_value_in_range('pressure_hpa', value, 500, 1500)
