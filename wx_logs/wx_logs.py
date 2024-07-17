@@ -416,10 +416,10 @@ class wx_logs:
       if bearing < 0:
         bearing += 360
       bearing = int(bearing)
+      self._simple_confirm_value_in_range('wind_bearing', bearing, 0, 360)
     if speed:
       speed = float(speed)
-      speed = round(speed, self._precision)
-      assert speed >= 0, 'Invalid wind speed'
+      self._simple_confirm_value_in_range('wind_speed', speed, 0, 100)
     self.wind_vectors[dt] = self._wind_to_vector(bearing, speed)
     self.wind_values[dt] = (speed, bearing)
     if add_values == True:
