@@ -101,6 +101,16 @@ class WxLogsTestCase(unittest.TestCase):
     a.add_temp_c(np.nan, datetime.datetime.now())
     self.assertEqual(a.get_temp_c('MEAN'), 1.5)
 
+  def test_nans_and_nones_in_wind_variables(self):
+    a = wx_logs('STATION')
+    a.add_wind(10, 0, datetime.datetime.now())
+    a.add_wind(10, 90, datetime.datetime.now())
+    a.add_wind(None, 180, datetime.datetime.now())
+    a.add_wind('', 180, datetime.datetime.now())
+    a.add_wind(np.nan, 180, datetime.datetime.now())
+    self.assertEqual(a.get_wind_speed('MEAN'), 10)
+    self.assertEqual(a.get_wind('VECTOR_MEAN'), (7.07, 45, 'NE'))
+
   def test_pressure_value_as_string(self):
     a = wx_logs('STATION')
     a.add_pressure_hpa(1000, '2020-04-02 12:33:09')

@@ -406,20 +406,19 @@ class wx_logs:
 
   def add_wind(self, speed, bearing, dt, add_values=True):
     dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    if speed == '':
-      speed = None
-    if bearing == '':
-      bearing = None
+    bearing = self._should_value_be_none(bearing)
+    speed = self._should_value_be_none(speed)
 
-    if bearing:
-      bearing = float(bearing)
-      if bearing < 0:
-        bearing += 360
-      bearing = int(bearing)
-      self._simple_confirm_value_in_range('wind_bearing', bearing, 0, 360)
-    if speed:
-      speed = float(speed)
-      self._simple_confirm_value_in_range('wind_speed', speed, 0, 100)
+    if speed is None or bearing is None:
+      return
+
+    bearing = float(bearing)
+    if bearing < 0:
+      bearing += 360
+    bearing = int(bearing)
+    self._simple_confirm_value_in_range('wind_bearing', bearing, 0, 360)
+    speed = float(speed)
+    self._simple_confirm_value_in_range('wind_speed', speed, 0, 100)
     self.wind_vectors[dt] = self._wind_to_vector(bearing, speed)
     self.wind_values[dt] = (speed, bearing)
     if add_values == True:
