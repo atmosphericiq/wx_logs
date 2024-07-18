@@ -47,6 +47,9 @@ class wx_logs:
   def get_type(self):
     return self._reading_type
 
+  def get_station_type(self):
+    return self.get_type()
+
   def set_station_id(self, station_id):
     self.station_id = station_id
 
