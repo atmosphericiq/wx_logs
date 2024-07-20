@@ -25,7 +25,8 @@ class wx_collection:
     s = wx_logs(station_type)
     s.set_station_id(station_id)
     self.add_station(s)
-
+    return s
+  
   def num_stations(self):
     return len(self._stations)
 

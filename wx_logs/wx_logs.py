@@ -33,6 +33,9 @@ class wx_logs:
     self.air_humidity_values = {}
     self.air_dewpoint_c_values = {}
 
+    self.location = {'latitude': None,
+      'longitude': None, 'elevation': None}
+
     # also store wind speed and bearing as sep
     # values for easier access
     self.wind_speed_values = {}
@@ -511,14 +514,23 @@ class wx_logs:
       result[dt.month] += 1
     return result
 
-  def set_location(self, latitude, longitude, elevation=None):
-    if elevation == '':
-      elevation = None
+  def set_elevation(self, elevation):
+    elevation = self._should_value_be_none(elevation)
     if elevation is not None:
       elevation = float(elevation)
-      elevation = round(elevation, self._precision)
-      if elevation == 0:
-        elevation = None
+      elevation = self._simple_confirm_value_in_range('elevation', elevation, -10, 8848)
+    self.location['elevation'] = elevation
+
+  def set_location(self, latitude, longitude, elevation=None):
+    elevation = self._should_value_be_none(elevation)
+    if elevation is not None:
+      elevation = float(elevation)
+      # make sure elevation is wtihin a reasonable range
+      # mt everest = 8848
+      self._simple_confirm_value_in_range('elevation', elevation, -10, 8848)
+      if elevation and elevation < 0:
+        elevation = 0
+
     if latitude == '':
       latitude = None
     if longitude == '':
@@ -531,9 +543,9 @@ class wx_logs:
       longitude = float(longitude)
       if longitude < -180 or longitude > 180:
         raise ValueError(f"Invalid longitude: {longitude}")
-    self.location = {'latitude': latitude,
-      'longitude': longitude,
-      'elevation': elevation}
+    self.location['latitude'] = latitude
+    self.location['longitude'] = longitude
+    self.location['elevation'] = elevation
 
   # generates a JSON dictionary of the log
   # but only includes summary information instead of all teh values

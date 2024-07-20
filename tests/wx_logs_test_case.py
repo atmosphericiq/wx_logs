@@ -170,6 +170,38 @@ class WxLogsTestCase(unittest.TestCase):
       6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0})
     self.assertEqual(a.is_full_year_of_data('air_temp_c'), False)
 
+  def test_elevation_record_on_station(self):
+    a = wx_logs('STATION')
+    a.set_location(41.87, -87.62, 100)
+    self.assertEqual(a.get_location(), {'latitude': 41.87, 
+      'longitude': -87.62, 'elevation': 100})
+
+  def test_elevation_negative_throw_exception(self):
+    a = wx_logs('STATION')
+    self.assertRaises(ValueError, a.set_location, 41.87, -87.62, -100)
+
+  def test_elevation_as_string(self):
+    a = wx_logs('STATION')
+    a.set_location(41.87, -87.62, '100')
+    self.assertEqual(a.get_location(), {'latitude': 41.87, 
+      'longitude': -87.62, 'elevation': 100})
+
+  def test_elevation_as_none(self):
+    a = wx_logs('STATION')
+    a.set_location(41.87, -87.62, None)
+    self.assertEqual(a.get_location(), {'latitude': 41.87, 
+      'longitude': -87.62, 'elevation': None})
+
+  def test_elevation_cannot_be_gt_than_mt_everest(self):
+    a = wx_logs('STATION')
+    self.assertRaises(ValueError, a.set_location, 41.87, -87.62, 9000)
+
+  def test_set_elevation_function(self):
+    a = wx_logs('STATION')
+    a.set_elevation(100)
+    self.assertEqual(a.get_location(), {'latitude': None, 
+      'longitude': None, 'elevation': 100})
+
   def test_is_full_year_any_month_of_zero_means_no(self):
     a = wx_logs('STATION')
     a.add_temp_c(1, '2020-01-01 00:00:00')

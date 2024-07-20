@@ -29,7 +29,7 @@ class WxCollectionTestCase(unittest.TestCase):
 
   def test_wx_new_station_function(self):
     c = wx_collection()
-    c.new_station('STATION', 1234)
+    s = c.new_station('STATION', 1234)
     self.assertEqual(c.get_station_by_id(1234).get_station_id(), '1234')
     self.assertEqual(c.get_station_by_id(1234).get_station_type(), 'STATION')
 
