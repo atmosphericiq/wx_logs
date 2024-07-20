@@ -518,19 +518,10 @@ class wx_logs:
     elevation = self._should_value_be_none(elevation)
     if elevation is not None:
       elevation = float(elevation)
-      elevation = self._simple_confirm_value_in_range('elevation', elevation, -10, 8848)
+      elevation = self._simple_confirm_value_in_range('elevation', elevation, -10, 8500)
     self.location['elevation'] = elevation
 
   def set_location(self, latitude, longitude, elevation=None):
-    elevation = self._should_value_be_none(elevation)
-    if elevation is not None:
-      elevation = float(elevation)
-      # make sure elevation is wtihin a reasonable range
-      # mt everest = 8848
-      self._simple_confirm_value_in_range('elevation', elevation, -10, 8848)
-      if elevation and elevation < 0:
-        elevation = 0
-
     if latitude == '':
       latitude = None
     if longitude == '':
@@ -545,7 +536,7 @@ class wx_logs:
         raise ValueError(f"Invalid longitude: {longitude}")
     self.location['latitude'] = latitude
     self.location['longitude'] = longitude
-    self.location['elevation'] = elevation
+    self.set_elevation(elevation)
 
   # generates a JSON dictionary of the log
   # but only includes summary information instead of all teh values
