@@ -1,17 +1,17 @@
 import json
 import logging
 import datetime
-from wx_logs import wx_logs
+from wx_logs import WeatherStation
 
 logger = logging.getLogger(__name__)
 
-class wx_collection:
+class WeatherCollection:
 
   def __init__(self):
     self._stations = {}
 
   def add_station(self, station):
-    if not isinstance(station, wx_logs):
+    if not isinstance(station, WeatherStation):
       logger.error("Invalid station type")
       return
     station_id = station.get_station_id()
@@ -22,7 +22,7 @@ class wx_collection:
 
   def new_station(self, station_type, station_id):
     station_id = str(station_id)
-    s = wx_logs(station_type)
+    s = WeatherStation(station_type)
     s.set_station_id(station_id)
     self.add_station(s)
     return s

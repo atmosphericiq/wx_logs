@@ -1,3 +1,3 @@
-from .wx_logs import *
-from .wx_collection import *
-from .file_storage import *
+from .wx_logs import WeatherStation
+from .wx_collection import WeatherCollection
+from .file_storage import FileStorage

@@ -15,7 +15,7 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-class file_storage:
+class FileStorage:
 
   def __init__(self):
     self.set_cache_dir()
@@ -57,7 +57,8 @@ class file_storage:
   # md5 hash of the file
   def get_md5_hash(self):
     file_path = self.get_full_path_to_file()
-    return hashlib.md5(open(file_path, 'rb').read()).hexdigest()
+    with open(file_path, 'rb') as f:
+      return hashlib.md5(f.read()).hexdigest()
 
   def delete_file(self):
     file_name = self.get_file_name()

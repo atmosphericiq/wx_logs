@@ -14,7 +14,7 @@ import pytz
 
 logger = logging.getLogger(__name__)
 
-class wx_logs:
+class WeatherStation:
 
   VALID_TYPES = ['STATION', 'BOUY']
 
