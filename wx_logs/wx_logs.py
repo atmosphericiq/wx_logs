@@ -1,3 +1,9 @@
+# wx_logs.py
+# A weather logging library
+# this is for processing and storing weather data
+# and generating summaries of the data
+# Author: Tom Hayden
+
 import json
 import dateparser
 import numpy as np
