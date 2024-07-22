@@ -5,7 +5,7 @@ import pytz
 import datetime
 from wx_logs import WeatherStation
 
-class WxLogsTestCase(unittest.TestCase):
+class WeatherStationTestCase(unittest.TestCase):
 
   def test_simple(self):
     a = WeatherStation('BOUY')
