@@ -42,6 +42,20 @@ class WindRoseTestCase(unittest.TestCase):
     self.assertEqual(a.bearing_to_direction(270), 'W')
     self.assertEqual(a.bearing_to_direction(315), 'NW')
 
+  def test_4_bin_wind_rose_with_calm(self):
+    a = WindRose(4)
+    a.add_wind(0.1, 0, datetime.datetime.now()) # CALM
+    a.add_wind(10, 90, datetime.datetime.now())
+    a.add_wind(10, 180, datetime.datetime.now())
+    a.add_wind(10, 270, datetime.datetime.now())
+
+    wind_rose = a.get_wind_rose()
+    self.assertEqual(wind_rose['N'], {'percent': 0, 'mean_wind_speed': None})
+    self.assertEqual(wind_rose['CALM'], {'percent': 0.25, 'mean_wind_speed': 0.1})
+    self.assertEqual(wind_rose['S'], {'percent': 0.25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['E'], {'percent': 0.25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['W'], {'percent': 0.25, 'mean_wind_speed': 10.0})
+
 
   def test_8_bin_wind_rose(self):
     a = WindRose(8)
