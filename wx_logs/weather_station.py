@@ -1,4 +1,4 @@
-# wx_logs.py
+# weather_station.py
 # A weather logging library
 # this is for processing and storing weather data
 # and generating summaries of the data
@@ -11,6 +11,9 @@ import math
 import logging
 import datetime
 import pytz
+from .wind_rose import WindRose
+from .helpers import should_value_be_none, simple_confirm_value_in_range, \
+    validate_dt_or_convert_to_datetime_obj
 
 logger = logging.getLogger(__name__)
 
@@ -32,8 +35,6 @@ class WeatherStation:
     self.qa_status = 'PASS'
     self.on_error = 'RAISE'
 
-    self.wind_vectors = {}
-    self.wind_values = {}
     self.air_temp_c_values = {}
     self.air_pressure_hpa_values = {}
     self.air_humidity_values = {}
@@ -42,10 +43,10 @@ class WeatherStation:
     self.location = {'latitude': None,
       'longitude': None, 'elevation': None}
 
-    # also store wind speed and bearing as sep
-    # values for easier access
-    self.wind_speed_values = {}
-    self.wind_bearing_values = {}
+    # for wind, we store all the values into the
+    # WindRose class, so we can organize all the 
+    # functions there
+    self.wind_rose = WindRose(8, precision)
 
     # pm25 and pm10 are ug/m3
     self.pm_25_values = {}
@@ -61,6 +62,12 @@ class WeatherStation:
 
   def set_station_id(self, station_id):
     self.station_id = station_id
+
+  # useful for setting things like elevation which come from rasters
+  # curently only elevation is supported
+  def set_field(self, field_name, value):
+    if field_name == 'elevation':
+      self.set_elevation(value)
 
   def set_station_owner(self, owner):
     self.owner = owner
@@ -119,7 +126,7 @@ class WeatherStation:
   # when adding a dewpoint, actually add it to both
   # the dewpoint array and the humidity calculation array
   def add_dewpoint_c(self, dewpoint_c, air_temp_c, dt):
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
     if dewpoint_c is None:
       return
     if air_temp_c is None:
@@ -130,10 +137,10 @@ class WeatherStation:
     self.air_humidity_values[dt] = rh
 
   def add_temp_c(self, value, dt):
-    value = self._should_value_be_none(value)
+    value = should_value_be_none(value)
     if value is None:
       return
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
 
     # the max temp seen on earth is 56.7C
     # the min temp seen on earth is -89.2C
@@ -146,8 +153,8 @@ class WeatherStation:
     self.air_temp_c_values[dt] = value
 
   def add_humidity(self, value, dt):
-    value = self._should_value_be_none(value)
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    value = should_value_be_none(value)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
     if value is None:
       return
 
@@ -164,12 +171,12 @@ class WeatherStation:
   # but for now, lets coalesce to zero
   # but less than -15 is bad!
   def add_pm25(self, value, dt):
-    value = self._simple_confirm_value_in_range('pm25', value, -15, 10000)
+    value = simple_confirm_value_in_range('pm25', value, -15, 10000)
     if value < 0:
       value = 0
     if value is None:
       return
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
     self.pm_25_values[dt] = value
 
   def get_pm25(self, measure='MEAN'):
@@ -189,56 +196,36 @@ class WeatherStation:
     return self._get_value_metric('so2_values', measure)
 
   def add_pm10(self, value, dt):
-    value = self._simple_confirm_value_in_range('pm10', value, -15, 10000)
+    value = simple_confirm_value_in_range('pm10', value, -15, 10000)
     if value is None:
       return
     if value < 0:
       value = 0
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
     self.pm_10_values[dt] = value
 
   def add_ozone_ppb(self, value, dt):
-    value = self._simple_confirm_value_in_range('ozone', value, 0, 1000)
+    value = simple_confirm_value_in_range('ozone', value, 0, 1000)
     if value is None:
       return
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
     self.ozone_ppb_values[dt] = value
 
   def add_so2(self, value, dt):
-    value = self._simple_confirm_value_in_range('so2', value, 0, 1000)
+    value = simple_confirm_value_in_range('so2', value, 0, 1000)
     if value is None:
       return
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
     self.so2_values[dt] = value
 
-  def _simple_confirm_value_in_range(self, field_name, value, min_value, max_value):
-    if value is None or value == '':
-      return
-    value = float(value)
-    if value < min_value or value > max_value:
-      self.handle_error(f"Invalid value for {field_name}: {value}")
-      return
-    return value
-
-  # interpret whether a value should be None
-  # which is none, numpy nan, empty string, etc
-  def _should_value_be_none(self, value):
-    if value is None:
-      return None
-    if isinstance(value, str) and value == '':
-      return None
-    if isinstance(value, float) and np.isnan(value):
-      return None
-    return value
-
   def add_pressure_hpa(self, value, dt):
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    value = self._should_value_be_none(value)
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
+    value = should_value_be_none(value)
     if value is None:
       return
     if value is not None:
       value = float(value)
-      value = self._simple_confirm_value_in_range('pressure_hpa', value, 500, 1500)
+      value = simple_confirm_value_in_range('pressure_hpa', value, 500, 1500)
     self.air_pressure_hpa_values[dt] = value
 
   # merge in another wx_log by copying the values
@@ -251,8 +238,8 @@ class WeatherStation:
     self.air_temp_c_values.update(other_log.air_temp_c_values)
     self.air_humidity_values.update(other_log.air_humidity_values)
     self.air_pressure_hpa_values.update(other_log.air_pressure_hpa_values)
-    self.wind_values.update(other_log.wind_values)
-    self.wind_vectors.update(other_log.wind_vectors)
+    self.wind_rose.wind_values.update(other_log.wind_rose.get_wind_values())
+    self.wind_rose.wind_vectors.update(other_log.wind_rose.get_wind_vectors())
     self.pm_25_values.update(other_log.pm_25_values)
     self.pm_10_values.update(other_log.pm_10_values)
     self.ozone_ppb_values.update(other_log.ozone_ppb_values)
@@ -357,146 +344,35 @@ class WeatherStation:
       return False
     return True
 
-  def _wind_to_vector(self, bearing, speed):
-    if speed is None or bearing is None:
-      return None
-    bearing_rad = np.radians(bearing)
-    x = speed * np.sin(bearing_rad)
-    y = speed * np.cos(bearing_rad)
-    return (x, y)
+  # make sure to use the wind_rose
+  def get_wind_speed(self, measure='MEAN'):
+    measure = measure.upper()
+    values = self.wind_rose.get_wind_speed_values()
+    return self._get_value_metric('wind_speed_values', measure, values)
 
+  # pass thru to the wind_rose
+  def add_wind(self, speed, bearing, dt, add_values=True):
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
+    bearing = should_value_be_none(bearing)
+    speed = should_value_be_none(speed)
+    self.wind_rose.add_wind(speed, bearing, dt, add_values)
+
+  # get the raw values from the wind_rose obj
+  # and then calculate with those
   def get_wind(self, measure='VECTOR_MEAN'):
-    self._recalculate_wind_vectors()
+    self.wind_rose.recalculate_wind_vectors()
     measure = measure.upper()
     if measure == 'VECTOR_MEAN':
-      total_x = 0
-      total_y = 0
-      count = 0
-      for dt, (x, y) in self.wind_vectors.items():
-        total_x += x
-        total_y += y
-        count += 1
-      if count == 0:
-        return (None, None, None)
-      avg_speed = np.sqrt(total_x**2 + total_y**2) / count
-      bearing_rad = np.arctan2(total_x, total_y)
-      bearing_deg = np.degrees(bearing_rad)
-      dir_string = self.bearing_to_direction(bearing_deg)
-      if bearing_deg < 0:
-        bearing_deg += 360
-      return (round(avg_speed, self._precision), 
-        round(bearing_deg, self._precision), dir_string)
+      return self.wind_rose.get_wind('VECTOR_MEAN')
     else:
       raise ValueError(f"Invalid measure: {measure}")
 
-  def get_wind_speed(self, measure='MEAN'):
-    measure = measure.upper()
-    return self._get_value_metric('wind_speed_values', measure)
-
-  def add_wind_speed_knots(self, speed_knots, dt):
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    if speed_knots == '':
-      speed_knots = None
-    if speed_knots is not None:
-      speed_knots = float(speed_knots)
-    self.add_wind_speed(speed_knots * 0.514444, dt)
-
-  def add_wind_speed(self, speed_m_s, dt):
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    if speed_m_s == '':
-      speed_m_s = None
-    if speed_m_s is not None:
-      speed_m_s = round(float(speed_m_s), self._precision)
-      speed_m_s = self._simple_confirm_value_in_range('speed_m_s', speed_m_s, 0, 100)
-    self.wind_speed_values[dt] = speed_m_s
-
-  def add_wind_bearing(self, bearing, dt):
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    if bearing == '':
-      bearing = None
-    if bearing is not None:
-      bearing = round(float(bearing), self._precision)
-      if bearing < 0:
-        bearing += 360
-
-      # validate bearing between 0 and 360
-      self._simple_confirm_value_in_range('bearing', bearing, 0, 360)
-
-    self.wind_bearing_values[dt] = bearing
-
-  # three step process
-  # 1. find the unique pairs of speed, bearing dt values
-  # 2. see which ones are NOT in wind_vectors
-  # 3. call add_wind for those vectors
-  # do this in an O(1) fashion
-  def _recalculate_wind_vectors(self):
-    calculated_dts = self.wind_vectors.keys()
-    not_calculated_dts = set(self.wind_speed_values.keys()) - set(calculated_dts) 
-    for dt in not_calculated_dts:
-      speed = self.wind_speed_values[dt]
-      if speed is None:
-        continue
-      if dt in self.wind_bearing_values.keys():
-        bearing = self.wind_bearing_values[dt]
-        if bearing is None:
-          continue
-        self.add_wind(speed, bearing, dt, False)
-
-  # function which returns a dictionary of wind rose data
-  # where the keys are the bearing strings (N, NE, etc)
-  # and the values are the mean wind speed for that direction
-  def get_wind_rose(self, bins=4):
-    self._recalculate_wind_vectors()
-    if bins == 4:
-      directions = ['N', 'E', 'S', 'W']
-    elif bins == 8:
-      directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+  def _get_value_metric(self, field_name, measure, values=None):
+    if values is None:
+      field = getattr(self, field_name)
+      field_values = list(field.items())
     else:
-      raise ValueError("Only 4 or 8 bins are supported")
-
-    result = {direction: {'x': 0, 'y': 0, 'count': 0} for direction in directions}
-
-    bin_size = 360 / bins
-    for (dt, (speed, bearing)) in self.wind_values.items():
-      (x, y) = self._wind_to_vector(bearing, speed)
-      direction = self.bearing_to_direction(bearing, bins)
-      result[direction]['x'] += x
-      result[direction]['y'] += y 
-      result[direction]['count'] += 1
-
-    for direction in result.keys():
-      if result[direction]['count'] > 0:
-        mean_x = result[direction]['x'] / result[direction]['count']
-        mean_y = result[direction]['y'] / result[direction]['count']
-        result[direction] = round(np.sqrt(mean_x**2 + mean_y**2), self._precision)
-      else:
-        result[direction] = 0
-    return result
-
-  def add_wind(self, speed, bearing, dt, add_values=True):
-    dt = self._validate_dt_or_convert_to_datetime_obj(dt)
-    bearing = self._should_value_be_none(bearing)
-    speed = self._should_value_be_none(speed)
-
-    if speed is None or bearing is None:
-      return
-
-    bearing = float(bearing)
-    if bearing < 0:
-      bearing += 360
-    bearing = int(bearing)
-    self._simple_confirm_value_in_range('wind_bearing', bearing, 0, 360)
-    speed = float(speed)
-    self._simple_confirm_value_in_range('wind_speed', speed, 0, 100)
-    self.wind_vectors[dt] = self._wind_to_vector(bearing, speed)
-    self.wind_values[dt] = (speed, bearing)
-    if add_values == True:
-      self.wind_speed_values[dt] = speed
-      self.wind_bearing_values[dt] = bearing
-
-  def _get_value_metric(self, field_name, measure):
-    field = getattr(self, field_name)
-    field_values = list(field.items())
+      field_values = list(values.items())
 
     # remove any none values
     field_values = [v for v in field_values if v is not None]
@@ -521,10 +397,10 @@ class WeatherStation:
     return result
 
   def set_elevation(self, elevation):
-    elevation = self._should_value_be_none(elevation)
+    elevation = should_value_be_none(elevation)
     if elevation is not None:
       elevation = float(elevation)
-      elevation = self._simple_confirm_value_in_range('elevation', elevation, -10, 8500)
+      elevation = simple_confirm_value_in_range('elevation', elevation, -10, 8500)
     self.location['elevation'] = elevation
 
   def set_location(self, latitude, longitude, elevation=None):
@@ -589,12 +465,12 @@ class WeatherStation:
             'mean': self.get_wind_speed('MEAN'),
             'max': self.get_wind_speed('MAX'),
             'min': self.get_wind_speed('MIN'),
-            'count': len(self.wind_values)
+            'count': len(self.wind_rose.get_wind_values())
           },
           'bearing': {
             'vector_mean': bearing,
             'vector_string': dir_string,
-            'count': len(self.wind_values)
+            'count': len(self.wind_rose.get_wind_values())
           },
         },
         'pm25': {
@@ -629,22 +505,33 @@ class WeatherStation:
     }
   )
 
-  def bearing_to_direction(self, bearing, bins=16):
-    if bins == 4:
-      directions = ['N', 'E', 'S', 'W']
-      index = int((bearing + 45) // 90)
-      return directions[index % 4]
-    elif bins == 8:
-      directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-      index = int((bearing + 22.5) // 45)
-      return directions[index % 8]
-    elif bins == 16:
-      directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
-        'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-      index = int((bearing + 11.25) // 22.5)
-      return directions[index % 16]
-    else:
-      raise ValueError("Only 4, 8, or 16 bins are supported")
-
   def get_location(self):
     return self.location
+
+  def add_wind_speed_knots(self, speed_knots, dt):
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
+    if speed_knots == '':
+      speed_knots = None
+    if speed_knots is not None:
+      speed_knots = float(speed_knots)
+    self.wind_rose.add_wind_speed(speed_knots * 0.514444, dt)
+
+  def add_wind_speed(self, speed_m_s, dt):
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
+    if speed_m_s == '':
+      speed_m_s = None
+    if speed_m_s is not None:
+      speed_m_s = round(float(speed_m_s), self._precision)
+      speed_m_s = simple_confirm_value_in_range('speed_m_s', speed_m_s, 0, 100)
+    self.wind_rose.add_wind_speed(speed_m_s, dt)
+
+  def add_wind_bearing(self, bearing, dt):
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
+    if bearing == '':
+      bearing = None
+    if bearing is not None:
+      bearing = round(float(bearing), self._precision)
+      if bearing < 0:
+        bearing += 360
+      simple_confirm_value_in_range('bearing', bearing, 0, 360)
+    self.wind_rose.add_wind_bearing(bearing, dt)

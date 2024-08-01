@@ -15,6 +15,13 @@ class WeatherStationTestCase(unittest.TestCase):
     a.add_temp_c(2, datetime.datetime.now())
     self.assertEqual(a.get_temp_c('MEAN'), 1.5) 
 
+  def test_set_field_with_elevation_custom(self):
+    a = WeatherStation('BOUY')
+    a.set_location(41.87, -87.62)
+    a.set_field('elevation', 100)
+    self.assertEqual(a.get_location(), {'latitude': 41.87,
+      'longitude': -87.62, 'elevation': 100})
+
   def test_temp_of_100c_throws_error(self):
     a = WeatherStation('BOUY')
     a.set_on_error('FAIL_QA')
@@ -100,66 +107,6 @@ class WeatherStationTestCase(unittest.TestCase):
     a.add_temp_c('', datetime.datetime.now())
     a.add_temp_c(np.nan, datetime.datetime.now())
     self.assertEqual(a.get_temp_c('MEAN'), 1.5)
-
-  def test_4_bin_wind_rose(self):
-    a = WeatherStation('STATION')
-    a.add_wind(10, 0, datetime.datetime.now())
-    a.add_wind(10, 90, datetime.datetime.now())
-    a.add_wind(10, 180, datetime.datetime.now())
-    a.add_wind(10, 270, datetime.datetime.now())
-
-    wind_rose = a.get_wind_rose(4)
-    self.assertEqual(wind_rose['N'], 10)
-    self.assertEqual(wind_rose['E'], 10)
-    self.assertEqual(wind_rose['S'], 10)
-    self.assertEqual(wind_rose['W'], 10)
-
-  def test_bearing_to_direction_4_8_16_bins(self):
-    a = WeatherStation('STATION')
-    self.assertEqual(a.bearing_to_direction(0, 4), 'N')
-    self.assertEqual(a.bearing_to_direction(0, 8), 'N')
-    self.assertEqual(a.bearing_to_direction(0, 16), 'N')
-    self.assertEqual(a.bearing_to_direction(45, 4), 'E')
-    self.assertEqual(a.bearing_to_direction(45, 8), 'NE')
-    self.assertEqual(a.bearing_to_direction(45, 16), 'NE')
-    self.assertEqual(a.bearing_to_direction(90, 4), 'E')
-    self.assertEqual(a.bearing_to_direction(90, 8), 'E')
-    self.assertEqual(a.bearing_to_direction(90, 16), 'E')
-    self.assertEqual(a.bearing_to_direction(135, 4), 'S')
-    self.assertEqual(a.bearing_to_direction(135, 8), 'SE')
-    self.assertEqual(a.bearing_to_direction(135, 16), 'SE')
-
-  def test_8_bin_wind_rose(self):
-    a = WeatherStation('STATION')
-    a.add_wind(10, 0, datetime.datetime.now())
-    a.add_wind(10, 45, datetime.datetime.now())
-    a.add_wind(10, 90, datetime.datetime.now())
-    a.add_wind(10, 135, datetime.datetime.now())
-    a.add_wind(10, 180, datetime.datetime.now())
-    a.add_wind(10, 225, datetime.datetime.now())
-    a.add_wind(10, 270, datetime.datetime.now())
-    a.add_wind(10, 315, datetime.datetime.now())
-
-    wind_rose = a.get_wind_rose(8)
-    self.assertEqual(wind_rose['N'], 10)
-    self.assertEqual(wind_rose['NE'], 10)
-    self.assertEqual(wind_rose['E'], 10)
-    self.assertEqual(wind_rose['SE'], 10)
-    self.assertEqual(wind_rose['S'], 10)
-    self.assertEqual(wind_rose['SW'], 10)
-    self.assertEqual(wind_rose['W'], 10)
-    self.assertEqual(wind_rose['NW'], 10)
-
-  # note that it all falls into E because 45 degrees
-  # ends up rounding to E
-  def test_4_bin_wind_rose_with_uneven_winds(self):
-    a = WeatherStation('STATION')
-    a.add_wind(10, 45, datetime.datetime.now())
-    wind_rose = a.get_wind_rose(4)
-    self.assertEqual(wind_rose['N'], 0)
-    self.assertEqual(wind_rose['E'], 10)
-    self.assertEqual(wind_rose['S'], 0)
-    self.assertEqual(wind_rose['W'], 0)
 
   def test_months_in_the_dates_fields(self):
     a = WeatherStation('STATION')

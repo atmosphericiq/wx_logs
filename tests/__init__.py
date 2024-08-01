@@ -1,3 +1,5 @@
 from .weather_station_test_case import WeatherStationTestCase
 from .wx_collection_test_case import WxCollectionTestCase
 from .file_storage_test_case import FileStorageTestCase
+from .raster_band_test_case import RasterBandTestCase
+from .wind_rose_test_case import WindRoseTestCase
