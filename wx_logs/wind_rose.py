@@ -1,6 +1,8 @@
 import numpy as np
 from .helpers import should_value_be_none, simple_confirm_value_in_range, \
   validate_dt_or_convert_to_datetime_obj
+from windrose import WindroseAxes
+import matplotlib.pyplot as plt
 
 class WindRose:
 
@@ -8,10 +10,20 @@ class WindRose:
     self.bins = bins
     if bins == 4:
       self.directions = ['N', 'E', 'S', 'W']
+      self.angles = [x for x in range(0, 360, 90)]
     elif bins == 8:
       self.directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+      self.angles = [x for x in range(0, 360, 45)]
+    elif bins == 16:
+      self.directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+        'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+      self.angles = [x/10.0 for x in range(0, 3600, 225)]
     else:
       raise ValueError("Only 4 or 8 bins are supported")
+
+    # add a CALM bucket for winds that are calm
+    self.directions.append('CALM')
+    self.calm_threshold_m_s = 0.5 
 
     self._precision = precision
     self.wind_vectors = {}
@@ -19,6 +31,9 @@ class WindRose:
 
     self.wind_speed_values = {}
     self.wind_bearing_values = {}
+
+  def direction_to_angle(self, direction):
+    return self.angles[self.directions.index(direction)]
 
   def get_wind_vectors(self):
     return self.wind_vectors
@@ -62,7 +77,13 @@ class WindRose:
     bin_size = 360 / self.bins
     for (dt, (speed, bearing)) in self.wind_values.items():
       (x, y) = self._wind_to_vector(bearing, speed)
-      direction = self.bearing_to_direction(bearing)
+
+      # if the wind is calm, then just add it to the CALM bucket
+      if speed and speed < self.calm_threshold_m_s:
+        direction = 'CALM'
+      else:
+        direction = self.bearing_to_direction(bearing)
+
       result[direction]['x'] += x
       result[direction]['y'] += y
       result[direction]['count'] += 1
@@ -158,3 +179,12 @@ class WindRose:
         round(bearing_deg, self._precision), dir_string)
     else:
       raise ValueError(f"Invalid measure: {measure}")
+
+  # plot the wind rose
+  def plot(self):
+    wd = np.array(list(self.get_wind_bearing_values().values()))
+    ws = np.array(list(self.get_wind_speed_values().values()))
+    ax = WindroseAxes.from_ax()
+    ax.bar(wd, ws, normed=True, opening=0.8, edgecolor="white", blowto=True, nsector=self.bins)
+    ax.set_legend()
+    return ax
