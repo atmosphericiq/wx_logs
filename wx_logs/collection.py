@@ -5,7 +5,7 @@ from wx_logs import WeatherStation
 
 logger = logging.getLogger(__name__)
 
-class WeatherCollection:
+class Collection:
 
   def __init__(self):
     self._stations = {}
