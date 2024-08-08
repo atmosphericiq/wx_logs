@@ -1,4 +1,5 @@
 import gstools as gs
+import io 
 import numpy as np
 import matplotlib.pyplot as plt
 from osgeo import gdal
@@ -93,3 +94,43 @@ class Kriger:
     plt.imshow(self._interpolated_values, origin='upper', cmap='viridis')
     plt.colorbar()
     plt.show()
+
+  # geotiff takes the interpolated grid array and returns a bytes object
+  # which is the geotiff 
+  def geotiff(self, nodata=-9999):
+    driver = gdal.GetDriverByName('MEM')
+    raster = driver.Create('geotiff',
+      self._interpolated_values.shape[1], 
+      self._interpolated_values.shape[0], 1, 
+      gdal.GDT_Float32)
+
+    # set the geotransform and proj
+    raster.SetGeoTransform((self.min_x, self.cell_size, 0, self.max_y, 0, -self.cell_size))
+    raster.SetProjection('EPSG:4326')
+
+    # set the nodata value in interpolated values
+    out_values = self._interpolated_values.copy()
+    out_values[np.isnan(out_values)] = nodata
+
+    # write the array to the raster
+    band = raster.GetRasterBand(1)
+    band.SetNoDataValue(nodata)
+    band.WriteArray(out_values)
+    del out_values
+
+    # flush the raster
+    band.FlushCache()
+
+    # Use GDAL's virtual memory file system to write to a virtual file
+    memfile_path = '/vsimem/temp_geotiff.tiff'
+    gdal.Translate(memfile_path, raster, format='GTiff')
+
+    # Read the virtual file into a bytes object
+    memfile = gdal.VSIFOpenL(memfile_path, 'rb')
+    geotiff_bytes = gdal.VSIFReadL(1, gdal.VSIStatL(memfile_path).size, memfile)
+    gdal.VSIFCloseL(memfile)
+
+    # Clean up the virtual file
+    gdal.Unlink(memfile_path)
+
+    return geotiff_bytes

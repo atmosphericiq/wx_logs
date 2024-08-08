@@ -71,7 +71,9 @@ class KrigerTestCase(unittest.TestCase):
     lower_left_corner_value = output_array[-1, 0]
     self.assertTrue(np.isnan(lower_left_corner_value))
 
-    k.plot_interpolated_grid()
+    # export a geotiff and make sure we get bytes
+    geotiff = k.geotiff()
+    self.assertTrue(isinstance(geotiff, bytearray))
 
   def test_kriging_on_linear_gradient(self):
     data = np.array([
