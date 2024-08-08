@@ -3,3 +3,4 @@ from .collection_test_case import CollectionTestCase
 from .file_storage_test_case import FileStorageTestCase
 from .raster_band_test_case import RasterBandTestCase
 from .wind_rose_test_case import WindRoseTestCase
+from .kriger_test_case import KrigerTestCase
