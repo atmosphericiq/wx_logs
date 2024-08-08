@@ -108,6 +108,14 @@ class WeatherStationTestCase(unittest.TestCase):
     a.add_temp_c(np.nan, datetime.datetime.now())
     self.assertEqual(a.get_temp_c('MEAN'), 1.5)
 
+  def test_setting_elevation(self):
+    a = WeatherStation('STATION')
+    a.set_location(41.87, -87.62, 100)
+    a.set_elevation(200)
+    self.assertEqual(a.get_location(), {'latitude': 41.87, 
+      'longitude': -87.62, 'elevation': 200})
+    self.assertEqual(a.get_elevation(), 200)
+
   def test_months_in_the_dates_fields(self):
     a = WeatherStation('STATION')
     a.add_temp_c(1, '2020-01-01 00:00:00')

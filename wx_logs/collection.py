@@ -39,7 +39,7 @@ class Collection:
   # append elevation will combine DEM elevation rasters
   # with the station data, to make sure we can set the right
   # elevation on all the points
-  def append_elevations_from_dem(self, dem_s3_path, dem_md5):
+  def append_elevations_from_dem(self, dem_s3_path, dem_md5, none_to_zero=True):
     if self._dem_band is None:
       logger.warning("DEM Band needs to download. Please wait.")
       self._get_dem_band(dem_s3_path, dem_md5)
@@ -49,6 +49,10 @@ class Collection:
       longitude = location['longitude']
       current_elevation = station.get_elevation()
       matched_val = self._dem_band.get_value(longitude, latitude)
+
+      # if matched_val is None, that usually means ocean, so elev = 0
+      if none_to_zero and matched_val is None:
+        matched_val = 0.0
 
       if current_elevation is not None and matched_val is not None:
         if abs(current_elevation - matched_val) > MISMATCH_THRESH_M:

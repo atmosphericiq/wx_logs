@@ -32,10 +32,8 @@ class CollectionTestCase(unittest.TestCase):
     c.add_station(a)
     c.add_station(b)
     c.append_elevations_from_dem(dem_s3_path, dem_s3_md5)
-
-    # assert each station has the right elevation
     self.assertEqual(c.get_station_by_id(1234).get_elevation(), 208)
-    self.assertEqual(c.get_station_by_id(1235).get_elevation(), None)
+    self.assertEqual(c.get_station_by_id(1235).get_elevation(), 0)
 
   def test_collection_append_elevation_but_dont_override_if_close(self):
     dem_s3_path = 'https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif'
