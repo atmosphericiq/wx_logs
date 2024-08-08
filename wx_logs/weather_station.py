@@ -505,6 +505,9 @@ class WeatherStation:
     }
   )
 
+  def get_elevation(self):
+    return self.location['elevation']
+
   def get_location(self):
     return self.location
 
