@@ -116,6 +116,30 @@ class WeatherStationTestCase(unittest.TestCase):
       'longitude': -87.62, 'elevation': 200})
     self.assertEqual(a.get_elevation(), 200)
 
+  def test_wind_rose_one_direction(self):
+    a = WeatherStation('STATION')
+    a.add_wind(10, 0, datetime.datetime.now())
+    a.add_wind(10, 0, datetime.datetime.now())
+    wind_rose = a.get_wind_rose()
+    self.assertEqual(wind_rose['N'], {'percent': 1.0, 'mean_wind_speed': 10.0})
+
+    s = json.loads(a.serialize_summary())
+    serialized_rose = s['air']['wind']['rose']
+    self.assertEqual(serialized_rose['N'], {'percent': 1.0, 'mean_wind_speed': 10.0})
+
+  def test_wind_rose_two_directions(self):
+    a = WeatherStation('STATION')
+    a.add_wind(10, 0, datetime.datetime.now())
+    a.add_wind(10, 90, datetime.datetime.now())
+    wind_rose = a.get_wind_rose()
+    self.assertEqual(wind_rose['N'], {'percent': 0.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['E'], {'percent': 0.5, 'mean_wind_speed': 10.0})
+
+    s = json.loads(a.serialize_summary())
+    serialized_rose = s['air']['wind']['rose']
+    self.assertEqual(serialized_rose['N'], {'percent': 0.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(serialized_rose['E'], {'percent': 0.5, 'mean_wind_speed': 10.0})
+
   def test_months_in_the_dates_fields(self):
     a = WeatherStation('STATION')
     a.add_temp_c(1, '2020-01-01 00:00:00')

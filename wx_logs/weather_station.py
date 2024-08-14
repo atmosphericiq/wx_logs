@@ -87,6 +87,10 @@ class WeatherStation:
   def get_owner(self):
     return self.owner
 
+  def get_wind_rose(self):
+    wind_rose = self.wind_rose.get_wind_rose()
+    return wind_rose
+
   def set_qa_status(self, status):
     if status not in ['PASS', 'FAIL']:
       raise ValueError(f"Invalid QA status: {status}")
@@ -472,6 +476,7 @@ class WeatherStation:
             'vector_string': dir_string,
             'count': len(self.wind_rose.get_wind_values())
           },
+          'rose': self.wind_rose.get_wind_rose()
         },
         'pm25': {
           'mean': self.get_pm25('MEAN'),

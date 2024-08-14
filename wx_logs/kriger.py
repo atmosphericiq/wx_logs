@@ -20,11 +20,25 @@ class Kriger:
     self._interpolated_values = None
     self._interpolated_variance = None
 
+    # if ul and lr are two dimensional then 2d else 3d
+    if len(ul) == 2:
+      self.dims = 2
+    elif len(ul) == 3:
+      self.min_z = ul[2]
+      self.max_z = lr[2]
+      self.dims = 3
+    else:
+      raise ValueError("Invalid dimensions for ul and lr")
+
   # data MUST be a N x 3 list or numpy array
   def set_data(self, data):
     if type(data) == list:
       data = np.array(data)
-    assert data.shape[1] == 3
+
+    if self.dims == 2:
+      assert data.shape[1] == 3
+    elif self.dims == 3:
+      assert data.shape[1] == 4
 
     # make sure all data points are within the bounds
     assert np.all(data[:, 0] >= self.min_x), "Data point outside of bounds"
@@ -53,28 +67,39 @@ class Kriger:
     assert model in MODEL_TYPES, "Invalid model type"
 
     model_class = getattr(gs, model) # variogram model
-    model = model_class(dim=2, var=self.variogram_var, len_scale=len_scale, nugget=nugget)
+    model = model_class(dim=self.dims, var=self.variogram_var, len_scale=len_scale, nugget=nugget)
 
     # make sure data has the right shape
-    assert self.data.shape[1] == 3
-
-    # Extract latitudes, longitudes, and data from the input
-    lons, lats, data = self.data[:, 0], self.data[:, 1], self.data[:, 2]
+    if self.dims == 2:
+      assert self.data.shape[1] == 3
+      lons, lats, data = self.data[:, 0], self.data[:, 1], self.data[:, 2]
+      cond_pos = [lons, lats]
+    elif self.dims == 3:
+      assert self.data.shape[1] == 4
+      lons, lats, elev, data = self.data[:, 0], self.data[:, 1], self.data[:, 2], self.data[:, 3]
+      cond_pos = [lons, lats, elev]
       
     # Set up the kriging "model", which is the variogram model and the data
-    krige = gs.krige.Ordinary(model, cond_pos=[lons, lats], cond_val=data)
+    krige = gs.krige.Ordinary(model, cond_pos=cond_pos, cond_val=data)
       
     # Create a meshgrid of points to interpolate
     x = np.linspace(self.min_x, self.max_x,
       int((self.max_x - self.min_x) / self.cell_size) + 1)
     y = np.linspace(self.min_y, self.max_y,
       int((self.max_y - self.min_y) / self.cell_size) + 1)
-    grid_x, grid_y = np.meshgrid(x, y, indexing='xy')
-     
+
+    if self.dims == 2:
+      grid_x, grid_y = np.meshgrid(x, y, indexing='xy')
+      krige_result = krige([grid_x.flatten(), grid_y.flatten()])
+    elif self.dims == 3:
+      z = np.linspace(self.min_z, self.max_z,
+        int((self.max_z - self.min_z) / self.cell_size) + 1)
+      grid_x, grid_y, grid_z = np.meshgrid(x, y, z, indexing='xy')
+      krige_result = krige([grid_x.flatten(), grid_y.flatten(), grid_z.flatten()])
+
     # Perform kriging on the entire grid and extract the values and
     # the variance profile. then take the interpolated values and reshape
     # them to the shape of the grid
-    krige_result = krige([grid_x.flatten(), grid_y.flatten()])
     (interpolated_values, krige_variance) = krige_result
 
     if nodata is True:
@@ -86,7 +111,10 @@ class Kriger:
 
     # now we have to flip the interpolated values so that the 
     # origin is in the upper left
-    self._interpolated_values = interpolated_values.reshape(grid_y.shape)[::-1, :]
+    if self.dims == 2:
+      self._interpolated_values = interpolated_values.reshape(grid_y.shape)[::-1, :]
+    elif self.dims == 3:
+      self._interpolated_values = interpolated_values.reshape(grid_z.shape)[::-1, :, :]
 
     return self._interpolated_values
 

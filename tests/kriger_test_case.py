@@ -36,6 +36,19 @@ class KrigerTestCase(unittest.TestCase):
     with self.assertRaises(Exception):
       k.set_data([[0, 0, 0], [0, 0, 0, 0]])
 
+  def test_3d_kriging_with_simple_data(self):
+    ul = (-10, 10, 0)
+    lr = (10, -10, 10)
+    k = Kriger(ul, lr, 1.0)
+
+    # in this case it is x,y,z,v
+    k.set_data([[0, 0, 0, 0], [0, 0, 5, 0], [0, 0, 10, 0]])
+    output_array = k.interpolate()
+    self.assertEqual(output_array.shape, (21, 21, 11))
+
+    # look at value on the ul layer and confirm zero
+    self.assertEqual(output_array[0, 0, 0], 0)
+
   def test_simple_krige_with_all_100s(self):
     ul = (-10, 10)
     lr = (10, -10)
