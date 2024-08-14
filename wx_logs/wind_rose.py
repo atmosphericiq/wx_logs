@@ -93,8 +93,10 @@ class WindRose:
         mean_x = result[direction]['x'] / result[direction]['count']
         mean_y = result[direction]['y'] / result[direction]['count']
         mean_speed = round(np.sqrt(mean_x**2 + mean_y**2), self._precision)
+        percent = result[direction]['count'] / len(self.wind_values)
+        percent *= 100 # convert to percentage
         result[direction] = {'mean_wind_speed': mean_speed,
-          'percent': result[direction]['count'] / len(self.wind_values)}
+          'percent': round(percent, self._precision)}
       else:
         result[direction] = {'mean_wind_speed': None, 'percent': 0.0}
     return result

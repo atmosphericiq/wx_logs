@@ -16,7 +16,7 @@ class WindRoseTestCase(unittest.TestCase):
     wr = WindRose(8, 2)
     wr.add_wind(10, 0, '2020-01-01 00:00:00') # mph, degrees, dt
     rose = wr.get_wind_rose()
-    self.assertEqual(rose['N'], {'percent': 1.0, 'mean_wind_speed': 10.00})
+    self.assertEqual(rose['N'], {'percent': 100.0, 'mean_wind_speed': 10.00})
     self.assertEqual(rose['E'], {'percent': 0.0, 'mean_wind_speed': None})
 
   def test_wind_rose_with_invalid_bins_in_constructor(self):
@@ -31,10 +31,10 @@ class WindRoseTestCase(unittest.TestCase):
     a.add_wind(10, 270, datetime.datetime.now())
 
     wind_rose = a.get_wind_rose()
-    self.assertEqual(wind_rose['N'], {'percent': 0.25, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['E'], {'percent': 0.25, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['S'], {'percent': 0.25, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['W'], {'percent': 0.25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['N'], {'percent': 25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['E'], {'percent': 25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['S'], {'percent': 25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['W'], {'percent': 25, 'mean_wind_speed': 10.0})
     self.assertEqual(wind_rose['CALM'], {'percent': 0, 'mean_wind_speed': None})
 
   def test_bearing_to_direction_4_8_16_bins(self):
@@ -57,10 +57,10 @@ class WindRoseTestCase(unittest.TestCase):
 
     wind_rose = a.get_wind_rose()
     self.assertEqual(wind_rose['N'], {'percent': 0, 'mean_wind_speed': None})
-    self.assertEqual(wind_rose['CALM'], {'percent': 0.25, 'mean_wind_speed': 0.1})
-    self.assertEqual(wind_rose['S'], {'percent': 0.25, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['E'], {'percent': 0.25, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['W'], {'percent': 0.25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['CALM'], {'percent': 25, 'mean_wind_speed': 0.1})
+    self.assertEqual(wind_rose['S'], {'percent': 25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['E'], {'percent': 25, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['W'], {'percent': 25, 'mean_wind_speed': 10.0})
 
   def test_8_bin_wind_rose(self):
     a = WindRose(8)
@@ -74,14 +74,14 @@ class WindRoseTestCase(unittest.TestCase):
     a.add_wind(10, 315, datetime.datetime.now())
 
     wind_rose = a.get_wind_rose()
-    self.assertEqual(wind_rose['N'], {'percent': 0.125, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['NE'], {'percent': 0.125, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['E'], {'percent': 0.125, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['SE'], {'percent': 0.125, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['S'], {'percent': 0.125, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['SW'], {'percent': 0.125, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['W'], {'percent': 0.125, 'mean_wind_speed': 10.0})
-    self.assertEqual(wind_rose['NW'], {'percent': 0.125, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['N'], {'percent': 12.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['NE'], {'percent': 12.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['E'], {'percent': 12.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['SE'], {'percent': 12.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['S'], {'percent': 12.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['SW'], {'percent': 12.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['W'], {'percent': 12.5, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['NW'], {'percent': 12.5, 'mean_wind_speed': 10.0})
 
   # note that it all falls into E because 45 degrees
   # ends up rounding to E
@@ -91,7 +91,7 @@ class WindRoseTestCase(unittest.TestCase):
     wind_rose = a.get_wind_rose()
     self.assertEqual(wind_rose['N'], {'percent': 0, 'mean_wind_speed': None})
     self.assertEqual(wind_rose['S'], {'percent': 0, 'mean_wind_speed': None})
-    self.assertEqual(wind_rose['E'], {'percent': 1.0, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['E'], {'percent': 100.0, 'mean_wind_speed': 10.0})
     self.assertEqual(wind_rose['W'], {'percent': 0, 'mean_wind_speed': None})
 
   # make sure that 44 degrees falls into north though
@@ -99,7 +99,7 @@ class WindRoseTestCase(unittest.TestCase):
     a = WindRose(4)
     a.add_wind(10, 44, datetime.datetime.now())
     wind_rose = a.get_wind_rose()
-    self.assertEqual(wind_rose['N'], {'percent': 1.0, 'mean_wind_speed': 10.0})
+    self.assertEqual(wind_rose['N'], {'percent': 100.0, 'mean_wind_speed': 10.0})
     self.assertEqual(wind_rose['S'], {'percent': 0, 'mean_wind_speed': None})
     self.assertEqual(wind_rose['E'], {'percent': 0, 'mean_wind_speed': None})
     self.assertEqual(wind_rose['W'], {'percent': 0, 'mean_wind_speed': None})
