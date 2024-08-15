@@ -1,4 +1,6 @@
 import json
+import os
+import joblib
 import logging
 import datetime
 from .weather_station import WeatherStation
@@ -60,6 +62,16 @@ class Collection:
       else:
         station.set_elevation(matched_val)
 
+  # use joblib to save to file, use gzip
+  def save(self, filename):
+    assert filename is not None, "Filename cannot be None"
+    joblib.dump(self, filename, compress=3)
+
+  # load from file
+  @staticmethod
+  def load(filename):
+    assert filename is not None, "Filename cannot be None"
+    return joblib.load(filename)
 
   # this will take a single variable on all stations
   # and krige it over some period of time

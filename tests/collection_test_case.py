@@ -1,4 +1,6 @@
 import unittest
+import os
+import joblib
 from wx_logs import WeatherStation, Collection
 
 class CollectionTestCase(unittest.TestCase):
@@ -68,3 +70,36 @@ class CollectionTestCase(unittest.TestCase):
     c.new_station('STATION', 1235)
     c.new_station('STATION', 1236)
     self.assertEqual(len(list(c.stations())), 3)
+
+  def test_serialization_with_joblib(self):
+    c = Collection()
+    c.new_station('STATION', 1234)
+    c.new_station('STATION', 1235)
+    c.new_station('STATION', 1236)
+    joblib.dump(c, 'test_collection.joblib')
+    c2 = joblib.load('test_collection.joblib')
+    self.assertEqual(len(list(c2.stations())), 3)
+
+    # cleanup joblib file
+    os.remove('test_collection.joblib')
+
+  # this one actually invokes the .save() and .load() methods
+  def test_serialization_function(self):
+    c = Collection()
+    c.new_station('STATION', 1234)
+    c.new_station('STATION', 1235)
+    c.new_station('STATION', 1236)
+
+    a = WeatherStation('STATION')
+    a.set_station_id('42')
+    a.add_temp_c(1, '2020-01-01 00:00:00')
+    a.add_temp_c(2, '2020-02-01 00:00:00')
+    c.add_station(a)
+
+    c.save('test_collection.joblib')
+    c2 = Collection.load('test_collection.joblib')
+    self.assertEqual(len(list(c2.stations())), 4)
+    os.remove('test_collection.joblib')
+
+    # check that we can get station 42
+    self.assertEqual(c2.get_station_by_id(42).get_station_id(), '42')
