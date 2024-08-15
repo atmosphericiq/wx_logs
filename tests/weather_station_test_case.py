@@ -26,6 +26,20 @@ class WeatherStationTestCase(unittest.TestCase):
     years = tow.get_years()
     self.assertIn(2020, years.keys())
 
+  def test_tow_and_enable_twice_make_sure_not_ovewritten(self):
+    a = WeatherStation('BOUY')
+    a.enable_time_of_wetness()
+    random_date = datetime.datetime(2020, 1, 1, 10, 0, 0)
+    a.add_temp_c(25, random_date)
+    a.add_humidity(100, random_date)
+    tow = a.get_tow()
+    years = tow.get_years()
+    self.assertIn(2020, years.keys())
+
+    a.enable_time_of_wetness()
+    years = a.get_tow().get_years()
+    self.assertIn(2020, years.keys())
+
   def test_tow_with_weather_once_a_day(self):
     a = WeatherStation('STATION')
     a.enable_time_of_wetness()

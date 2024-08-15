@@ -61,7 +61,8 @@ class WeatherStation:
   # temperature or humidity values, we also put into
   # the TOW object
   def enable_time_of_wetness(self):
-    self.tow = TOWCalculator()
+    if self.tow is None: # don't overwrite
+      self.tow = TOWCalculator()
 
   def get_type(self):
     return self._reading_type
