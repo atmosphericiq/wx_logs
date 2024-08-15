@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
   name='wx_logs',
-  version='0.4.9',
+  version='0.5.0',
   author='Tom Hayden',
   author_email='thayden@gmail.com',
   packages=find_packages(exclude=['tests', 'tests.*']),

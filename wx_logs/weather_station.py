@@ -13,6 +13,7 @@ import logging
 import datetime
 import pytz
 from .wind_rose import WindRose
+from .tow_calculator import TOWCalculator
 from .helpers import should_value_be_none, simple_confirm_value_in_range, \
     validate_dt_or_convert_to_datetime_obj
 
@@ -35,6 +36,7 @@ class WeatherStation:
     self.timezone = None
     self.qa_status = 'PASS'
     self.on_error = 'RAISE'
+    self.tow = None
 
     self.air_temp_c_values = {}
     self.air_pressure_hpa_values = {}
@@ -54,6 +56,12 @@ class WeatherStation:
     self.pm_10_values = {}
     self.ozone_ppb_values = {}
     self.so2_values = {}
+
+  # if we enable the tow calculator then when we add
+  # temperature or humidity values, we also put into
+  # the TOW object
+  def enable_time_of_wetness(self):
+    self.tow = TOWCalculator()
 
   def get_type(self):
     return self._reading_type
@@ -128,6 +136,12 @@ class WeatherStation:
     relative_humidity = 100 * (e_dew / e_temp)
     return relative_humidity
 
+  # return the time of wetness object
+  def get_tow(self):
+    if self.tow is None:
+      raise ValueError("TOW not enabled, use enable_time_of_wetness()")
+    return self.tow
+
   # when adding a dewpoint, actually add it to both
   # the dewpoint array and the humidity calculation array
   def add_dewpoint_c(self, dewpoint_c, air_temp_c, dt):
@@ -157,6 +171,10 @@ class WeatherStation:
 
     self.air_temp_c_values[dt] = value
 
+    # if we have a TOW object, then add the temperature
+    if self.tow is not None and value is not None:
+      self.tow.add_temperature(value, dt)
+
   def add_humidity(self, value, dt):
     value = should_value_be_none(value)
     dt = validate_dt_or_convert_to_datetime_obj(dt)
@@ -170,6 +188,10 @@ class WeatherStation:
     if value > 100:
       value = 100
     self.air_humidity_values[dt] = value
+
+    # if we have a TOW object, then add the humidity
+    if self.tow is not None and value is not None:
+      self.tow.add_humidity(value, dt)
   
   # according to EPA negative values are allowed
   # https://www.epa.gov/sites/default/files/2016-10/documents/pm2.5_continuous_monitoring.pdf
@@ -429,7 +451,7 @@ class WeatherStation:
   # but only includes summary information instead of all teh values
   def serialize_summary(self):
     (speed, bearing, dir_string) = self.get_wind('VECTOR_MEAN')
-    return json.dumps({
+    payload = {
       'type': self._reading_type,
       'station': {
         'id': self.station_id,
@@ -509,7 +531,13 @@ class WeatherStation:
         }
       }
     }
-  )
+
+    # if we have tow enabled, include that in the air section
+    if self.tow is not None:
+      payload['air']['time_of_wetness'] = self.tow.get_averages()
+      payload['air']['time_of_wetness']['by_year'] = self.tow.get_years()
+
+    return json.dumps(payload)
 
   def get_elevation(self):
     return self.location['elevation']

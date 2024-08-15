@@ -16,6 +16,57 @@ class WeatherStationTestCase(unittest.TestCase):
     a.add_temp_c(2, datetime.datetime.now())
     self.assertEqual(a.get_temp_c('MEAN'), 1.5) 
 
+  def test_simple_with_tow_single_day(self):
+    a = WeatherStation('BOUY')
+    a.enable_time_of_wetness()
+    random_date = datetime.datetime(2020, 1, 1, 10, 0, 0)
+    a.add_temp_c(25, random_date)
+    a.add_humidity(100, random_date)
+    tow = a.get_tow()
+    years = tow.get_years()
+    self.assertIn(2020, years.keys())
+
+  def test_tow_with_weather_once_a_day(self):
+    a = WeatherStation('STATION')
+    a.enable_time_of_wetness()
+    c = 0
+    for i in range(1, 13):
+      for j in range(1, 29):
+        random_date = datetime.datetime(2021, i, j, 10, 0, 0)
+        a.add_temp_c(25, random_date)
+        a.add_humidity(100, random_date)
+        c += 1
+
+    # we only did months and days above, so it should be 336/8760
+    # which is a QA fail
+    years = a.get_tow().get_years()
+    self.assertEqual(len(years), 1)
+    self.assertIn(2021, years.keys())
+    data_2021 = years[2021]
+    self.assertEqual(data_2021['max_hours'], 8760)
+    self.assertEqual(data_2021['percent_valid'], round(c/8760.0, 4))
+    self.assertEqual(data_2021['total_hours'], c)
+    self.assertEqual(data_2021['qa_state'], 'FAIL')
+    self.assertEqual(data_2021['time_of_wetness'], None)
+
+  def test_tow_with_a_full_year_data(self):
+    a = WeatherStation('STATION')
+    a.enable_time_of_wetness()
+    c = 0
+    for i in range(1, 13):
+      for j in range(1, 29):
+        for h in range(0, 24):
+          t = -10
+          if h % 2 == 0:
+            t = 10 
+          random_date = datetime.datetime(2021, i, j, h, 0, 0)
+          a.add_temp_c(t, random_date)
+          a.add_humidity(81, random_date)
+          c += 1
+    serialized = json.loads(a.serialize_summary())
+    self.assertEqual(serialized['air']['time_of_wetness']['by_year']['2021']['time_of_wetness'], 8760 * 0.5)
+    self.assertEqual(serialized['air']['time_of_wetness']['annual_time_of_wetness'], 8760 * 0.5)
+
   def test_set_field_with_elevation_custom(self):
     a = WeatherStation('BOUY')
     a.set_location(41.87, -87.62)
@@ -267,6 +318,22 @@ class WeatherStationTestCase(unittest.TestCase):
 
     a.set_station_owner('BOUY')
     self.assertEqual(a.get_station_owner(), 'BOUY')
+
+  def test_serialize_with_tow_included(self):
+    a = WeatherStation('STATION')
+    a.enable_time_of_wetness()
+    random_date = datetime.datetime(2020, 1, 1, 10, 0, 0)
+    a.add_temp_c(25, random_date)
+    a.add_humidity(100, random_date)
+    years = a.get_tow().get_years()
+    self.assertIn(2020, years.keys())
+
+    summary = json.loads(a.serialize_summary())
+    self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['time_of_wetness'], None)
+    self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['qa_state'], 'FAIL')
+    self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['percent_valid'], round(1.0/8760.0, 4))
+    self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['max_hours'], 366 * 24) # leap
+    self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['total_hours'], 1)
 
   def test_serialize_summary_function(self):
     a = WeatherStation('BOUY')

@@ -1,6 +1,10 @@
 import datetime
 import numpy as np
 
+TOW_RH_THRESHOLD = 80
+TOW_T_THRESHOLD = 0
+HOURS_PER_YEAR = 8760
+
 # this class is designed to calculate annual TOW (time of wetness)
 # for a given year which is the number of hours in a year that
 # the surface is wet. This is important for the calculation of
@@ -8,8 +12,9 @@ import numpy as np
 # number of hours per year with RH > 80% and T > 0
 class TOWCalculator:
 
-  def __init__(self):
+  def __init__(self, precision=4):
     self._data = {}
+    self._precision = precision
 
   def _validate_dt(self, dt):
     if not isinstance(dt, datetime.datetime):
@@ -21,6 +26,32 @@ class TOWCalculator:
     month = dt.month
     hour = dt.hour
     return (year, month, day, hour)
+
+  def annualize(self, valid_hours, tow_hours):
+    if valid_hours == 0:
+      return None
+    pct_of_valid = float(tow_hours) / float(valid_hours)
+    return int(round(pct_of_valid * HOURS_PER_YEAR, 0))
+
+  # return a multi year average, excluding years with QA failures
+  def get_averages(self):
+    years = self.get_years()
+    total_hours = 0
+    tow_hours = 0
+    max_hours = 0
+    valid_years = 0
+    for year in years.keys():
+      if years[year]['qa_state'] == 'PASS':
+        total_hours += years[year]['total_hours']
+        tow_hours += years[year]['time_of_wetness_actual']
+        max_hours += years[year]['max_hours']
+        valid_years += 1
+
+    # ok now do the same projection we do below
+    projected_tow = self.annualize(total_hours, tow_hours)
+
+    return {'annual_time_of_wetness': projected_tow,
+      'valid_years': valid_years}
 
   # return an array for each year in data that looks like
   # {'total_hours': N, 'time_of_wetness': N, 'percent_valid': N}
@@ -38,9 +69,9 @@ class TOWCalculator:
         total_hours += 1
         mean_t = np.mean(temp_readings)
         mean_rh = np.mean(rh_readings)
-        if mean_t > 0 and mean_rh > 80:
+        if mean_t > TOW_T_THRESHOLD and mean_rh > TOW_RH_THRESHOLD:
           tow_hours += 1
-      percent_valid = float(total_hours) / float(max_hours)
+      percent_valid = round(float(total_hours) / float(max_hours), self._precision)
       qa_state = 'PASS' if percent_valid > 0.75 else 'FAIL'
       if qa_state == 'PASS':
         projected_tow = self.project_tow(total_hours, max_hours, tow_hours)
@@ -49,6 +80,7 @@ class TOWCalculator:
       payload = {'max_hours': max_hours, 
         'total_hours': total_hours,
         'time_of_wetness': projected_tow,
+        'time_of_wetness_actual': tow_hours,
         'qa_state': qa_state,
         'percent_valid': percent_valid}
       years[year] = payload
