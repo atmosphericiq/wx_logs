@@ -8,6 +8,7 @@ import json
 import dateparser
 import numpy as np
 import math
+import joblib
 import logging
 import datetime
 import pytz
@@ -515,6 +516,17 @@ class WeatherStation:
 
   def get_location(self):
     return self.location
+
+  # use joblib to save to file, use gzip
+  def save(self, filename):
+    assert filename is not None, "Filename cannot be None"
+    joblib.dump(self, filename, compress=3)
+
+  # load from file
+  @staticmethod
+  def load(filename):
+    assert filename is not None, "Filename cannot be None"
+    return joblib.load(filename)
 
   def add_wind_speed_knots(self, speed_knots, dt):
     dt = validate_dt_or_convert_to_datetime_obj(dt)

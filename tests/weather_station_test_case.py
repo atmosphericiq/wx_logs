@@ -1,4 +1,5 @@
 import unittest
+import os
 import numpy as np
 import json
 import pytz
@@ -459,6 +460,18 @@ class WeatherStationTestCase(unittest.TestCase):
     serialized = json.loads(a.serialize_summary())
     self.assertEqual(serialized['air']['wind']['speed']['mean'], 10)
     self.assertEqual(serialized['air']['wind']['speed']['vector_mean'], 7.07)
+
+  def test_save_and_load_methods(self):
+    a = WeatherStation('BOUY')
+    a.add_temp_c(1, '2020-04-02 12:33:09')
+    a.add_temp_c(2, datetime.datetime.now())
+    a.add_humidity(100, '2020-04-02 12:33:09')
+    a.add_humidity(50, datetime.datetime.now())
+    a.save('test.joblib')
+    a2 = WeatherStation.load('test.joblib')
+    self.assertEqual(a2.get_temp_c('MEAN'), 1.5)
+    self.assertEqual(a2.get_humidity('MEAN'), 75)
+    os.remove('test.joblib')
 
   def test_location_field(self):
     a = WeatherStation('STATION')
