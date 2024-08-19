@@ -1,4 +1,5 @@
 import unittest
+import numpy as np
 from wx_logs import RasterBand
 
 class RasterBandTestCase(unittest.TestCase):
@@ -19,6 +20,22 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b.band_count(), 1)
     self.assertRaises(ValueError, b.load_band, 2)
 
+  def test_make_perioidic_gradients_from_snow_map(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
+    b.load_band(1)
+    (gx, gy) = b.periodic_gradients()
+    self.assertEqual(gx.shape, (850, 1500))
+    self.assertEqual(gy.shape, (850, 1500))
+    self.assertEqual(b.shape(), (850, 1500))
+  
+    b2 = RasterBand()
+    b2.load_array(gx, (1,1), (1,1), -99999)
+    self.assertEqual(b2.band_count(), 1)
+    self.assertEqual(b2.shape(), (850, 1500))
+    self.assertAlmostEqual(b2.sum(), 5020.1255, places=4)
+
+
   def test_raster_from_numpy_array(self):
     arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
     b = RasterBand()
@@ -31,6 +48,66 @@ class RasterBandTestCase(unittest.TestCase):
     b.load_array(arr, (1,1), (1,1), -99)
     self.assertEqual(b.band_count(), 1)
     self.assertEqual(b.get_nodata(), -99)
+
+  def test_periodic_gradients(self):
+    arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    b = RasterBand()
+    b.load_array(arr)
+    grad_y = np.array([[-1.5, -1.5, -1.5],
+      [3, 3, 3],
+      [-1.5, -1.5, -1.5]])
+    grad_x = np.array([[-0.5,  1.0, -0.5],
+      [-0.5, 1.0, -0.5],
+      [-0.5, 1.0, -0.5]])
+    (gx, gy) = b.periodic_gradients()
+    self.assertTrue(np.array_equal(gx, grad_x), "X gradients do not match")
+    self.assertTrue(np.array_equal(gy, grad_y), "Y gradients do not match")
+
+  def test_periodic_gradients_with_nodata(self):
+    arr = [[1, 2, 3], [4, -99, 6], [7, 8, 9]]
+    b = RasterBand()
+    b.load_array(arr, (1,1), (1,1), -99.0)
+    grad_y = np.array([[-1.5, np.nan, -1.5],
+      [3, 3.0, 3],
+      [-1.5, np.nan, -1.5]])
+    grad_x = np.array([[-0.5,  1.0, -0.5],
+      [np.nan, 1.0, np.nan],
+      [-0.5, 1.0, -0.5]])
+    (gx, gy) = b.periodic_gradients()
+    self.assertTrue(np.allclose(gx, grad_x, equal_nan=True),
+      "X gradients do not match")
+    self.assertTrue(np.allclose(gy, grad_y, equal_nan=True), 
+      "Y gradients do not match")
+
+  def test_periodic_grads_with_nodata_on_edge(self):
+    arr = [[1, 2, 3], [4, 5, 6], [7, 8, -99.0]]
+    b = RasterBand()
+    b.load_array(arr, (1,1), (1,1), -99.0)
+    grad_y = np.array([[-1.5, -1.5, np.nan],
+      [3, 3, np.nan],
+      [-1.5, -1.5, -1.5]])
+    grad_x = np.array([[-0.5,  1.0, -0.5],
+      [-0.5, 1.0, -0.5],
+      [np.nan, np.nan, -0.5]])
+    (gx, gy) = b.periodic_gradients()
+    self.assertTrue(np.allclose(gx, grad_x, equal_nan=True), "X gradients do not match")
+    self.assertTrue(np.allclose(gy, grad_y, equal_nan=True), "Y gradients do not match")
+
+  def test_raster_gradients(self):
+    arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    b = RasterBand()
+    b.load_array(arr)
+    grad_y = [[1, 1, 1], [1, 1, 1], [1, 1, 1]]
+    grad_x = [[3, 3, 3], [3, 3, 3], [3, 3, 3]]
+    (gx, gy) = b.gradients()
+    self.assertTrue(np.array_equal(gx, grad_x), "X gradients do not match")
+    self.assertTrue(np.array_equal(gy, grad_y), "Y gradients do not match")
+
+  def test_raster_sum_array_with_nodatas(self):
+    arr = [[1, 1, 1], [4, 4, 4], [1, 1, -99.0]]
+    b = RasterBand()
+    b.load_array(arr, (1,1), (1,1), -99.0)
+    self.assertEqual(b.sum(), 17)
 
   # Upper Left  (-126.0000000,  55.0000000) (126d 0' 0.00"W, 55d 0' 0.00"N)
   # Lower Left  (-126.0000000,  21.0000000) (126d 0' 0.00"W, 21d 0' 0.00"N)
@@ -107,7 +184,7 @@ class RasterBandTestCase(unittest.TestCase):
     b.load_band(1)
     self.assertEqual(b.band_count(), 1)
     size = b.shape()
-    self.assertEqual(size, (1500, 850))
+    self.assertEqual(size, (850, 1500))
 
   def test_nodata_value(self):
     b = RasterBand()

@@ -103,7 +103,7 @@ class RasterBand:
 
   def shape(self):
     self._throw_except_if_band_not_loaded()
-    return (self._cols, self._rows)
+    return (self._rows, self._cols)
 
   def size(self):
     self._throw_except_if_band_not_loaded()
@@ -168,6 +168,35 @@ class RasterBand:
     assert band_nodata == self._nodata, "Nodata values do not match"
     return band_nodata
 
+  # return the values in the raster as a numpy array
+  def values(self):
+    self._throw_except_if_band_not_loaded()
+    data = self._band.ReadAsArray()
+    data = np.where(data == self._nodata, np.nan, data)
+    return data
+
+  # sum all the values in the array
+  def sum(self):
+    self._throw_except_if_band_not_loaded()
+    return np.nansum(self.values())
+
+  def gradients(self):
+    self._throw_except_if_band_not_loaded()
+    dx, dy = np.gradient(self.values())
+    return dx, dy
+
+  # dx = x resolution, dy = y resolution
+  def periodic_gradients(self, dx=1.0, dy=1.0):
+    self._throw_except_if_band_not_loaded()
+    arr = self.values()
+    grad_x = np.zeros_like(arr, dtype=float)
+    grad_y = np.zeros_like(arr, dtype=float)
+    grad_x = np.roll(arr, -1, axis=1) - np.roll(arr, 1, axis=1)
+    grad_y = np.roll(arr, -1, axis=0) - np.roll(arr, 1, axis=0)
+    grad_x /= (2 * dx)
+    grad_y /= (2 * dy)
+    return grad_x, grad_y
+  
   # override the nodata value on everything
   def set_nodata(self, nodata):
     self._throw_except_if_band_not_loaded()
