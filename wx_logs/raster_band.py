@@ -27,6 +27,45 @@ class RasterBand:
     fs.download()
     self.loadf(fs.get_full_path_to_file())
   
+  # load a numpy array into the raster band
+  def load_array(self, nparray, ul=None, pixel_widths=(1,1), 
+    nodata=-9999, dtype=gdal.GDT_Float32):
+
+    if type(nparray) is list:
+      nparray = np.array(nparray)
+
+    if type(pixel_widths) is int:
+      pixel_widths = (pixel_widths, pixel_widths)
+
+    # if we have upper left then we will need to set it 
+    top_left_x = 0
+    top_left_y = 0
+    if ul is not None:
+      assert len(ul) == 2, "Upper left must be a tuple of 2"
+      top_left_x = ul[0]
+      top_left_y = ul[1]
+
+    # np array has to be 2d
+    if len(nparray.shape) != 2:
+      raise ValueError("Array must be 2d")
+    self._tif = (gdal.GetDriverByName('MEM')
+      .Create('', nparray.shape[1], nparray.shape[0], 1, dtype))
+
+    # geotransform vars are (top left x, w-e pixel resolution, rotation, 
+    # top left y, rotation, n-s pixel resolution)
+    self._tif.SetGeoTransform((top_left_x, pixel_widths[0], 0, top_left_y, 0, -pixel_widths[1]))
+    self._band = self._tif.GetRasterBand(1)
+    self._band.WriteArray(nparray)
+    self._cols = nparray.shape[1]
+    self._rows = nparray.shape[0]
+    self._x_origin = top_left_x
+    self._y_origin = top_left_y
+    self._pixel_w = pixel_widths[0]
+    self._pixel_h = pixel_widths[1]
+
+    if nodata is not None:
+      self.set_nodata(nodata)
+
   def loadf(self, gtif):
     logger.debug("opening %s" % gtif)
     if not os.path.exists(gtif):
@@ -35,6 +74,14 @@ class RasterBand:
 
   def band_count(self):
     return self._tif.RasterCount
+
+  # return the upper left point
+  def ul(self):
+    return (self._x_origin, self._y_origin)
+
+  def lr(self):
+    return (self._x_origin + self._cols * self._pixel_w,
+      self._y_origin - self._rows * self._pixel_h)
 
   def load_band(self, band_id=1):
     # make sure the band exists
@@ -114,11 +161,30 @@ class RasterBand:
     return (self._x_origin + (self._cols * self._pixel_w / 2.0),
             self._y_origin - (self._rows * self._pixel_h / 2.0))
 
+  # get nodata from the band and the object here
   def get_nodata(self):
-    return self._nodata
+    self._throw_except_if_band_not_loaded()
+    band_nodata = self._band.GetNoDataValue()
+    assert band_nodata == self._nodata, "Nodata values do not match"
+    return band_nodata
 
+  # override the nodata value on everything
   def set_nodata(self, nodata):
+    self._throw_except_if_band_not_loaded()
+
+    if self._band.GetNoDataValue() is not None:
+      if nodata != self._band.GetNoDataValue():
+        logger.warning("NODATA value already set to %s" % self._band.GetNoDataValue())
+
     self._nodata = nodata
+    if nodata is None:
+      result_code = self._band.DeleteNoDataValue()
+    else:
+      result_code = self._band.SetNoDataValue(nodata)
+    if result_code != 0:
+      raise ValueError("Could not set nodata value")
+    self._band.FlushCache()
+    assert nodata == self._band.GetNoDataValue(), "NODATA not set"
 
   # retrieve a single value at a location
   # the x,y values are in the coordinate system of the raster

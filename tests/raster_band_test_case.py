@@ -10,13 +10,27 @@ class RasterBandTestCase(unittest.TestCase):
 
   def test_file_does_not_exist(self):
     b = RasterBand()
-    self.assertRaises(ValueError, b.load_url, 'https://public-images.engineeringdirector.com/dem/snowfall.2017bad.tif')
+    self.assertRaises(ValueError, b.load_url,
+      'https://public-images.engineeringdirector.com/dem/snowfall.2017bad.tif')
 
   def test_loading_band_not_there(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     self.assertEqual(b.band_count(), 1)
     self.assertRaises(ValueError, b.load_band, 2)
+
+  def test_raster_from_numpy_array(self):
+    arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    b = RasterBand()
+    b.load_array(arr)
+    self.assertEqual(b.band_count(), 1)
+
+  def test_raster_from_numpy_array_with_nodata(self):
+    arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+    b = RasterBand()
+    b.load_array(arr, (1,1), (1,1), -99)
+    self.assertEqual(b.band_count(), 1)
+    self.assertEqual(b.get_nodata(), -99)
 
   # Upper Left  (-126.0000000,  55.0000000) (126d 0' 0.00"W, 55d 0' 0.00"N)
   # Lower Left  (-126.0000000,  21.0000000) (126d 0' 0.00"W, 21d 0' 0.00"N)
@@ -99,9 +113,9 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
-    self.assertEqual(b.get_nodata(), None) #-99999)
-    b.set_nodata(-99999)
     self.assertEqual(b.get_nodata(), -99999)
+    b.set_nodata(None)
+    self.assertEqual(b.get_nodata(), None)
 
   # 0,0 should be null because it is a corner and set as nodata
   def test_get_value_outside_bounds_throws_exception(self):
