@@ -1,4 +1,5 @@
 from setuptools import setup, find_packages
+from wx_logs import __version__
 
 setup(
   name='wx_logs',
