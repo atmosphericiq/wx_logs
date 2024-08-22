@@ -5,5 +5,3 @@ from .raster_band import RasterBand
 from .wind_rose import WindRose
 from .kriger import Kriger
 from .tow_calculator import TOWCalculator
-
-__version__ = '0.5.3'
