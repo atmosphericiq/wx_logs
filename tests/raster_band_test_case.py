@@ -58,6 +58,20 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b2.shape(), (3600, 1660))
     b2.write_to_file('/tmp/test_pgradient.tif', True, True)
 
+    # now do the same with y
+    b3 = RasterBand()
+    b3 = b.clone_with_new_data(gy)
+    self.assertEqual(b3.band_count(), 1)
+    self.assertEqual(b3.shape(), (3600, 1660))
+    b3.write_to_file('/tmp/test_pgradient_y.tif', True, True)
+
+    # load in Y and confirm shape and nodata
+    b4 = RasterBand()
+    b4.loadf('/tmp/test_pgradient_y.tif')
+    b4.set_band(1)
+    self.assertEqual(b4.shape(), (3600, 1660))
+    self.assertEqual(b4.get_nodata(), -9999)
+
   def test_load_snow_raster_view_metadata(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
