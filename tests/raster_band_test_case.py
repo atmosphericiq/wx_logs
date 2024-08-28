@@ -105,7 +105,7 @@ class RasterBandTestCase(unittest.TestCase):
     b2.load_array(gx, -99999)
     self.assertEqual(b2.band_count(), 1)
     self.assertEqual(b2.shape(), (1500, 850))
-    self.assertAlmostEqual(b2.sum(), 5020.1255, places=4)
+    self.assertAlmostEqual(b2.sum(), 2*5020.1255, places=4)
 
   def test_raster_get_grid_value_at_position(self):
     b = RasterBand()
@@ -309,12 +309,12 @@ class RasterBandTestCase(unittest.TestCase):
     arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
     b = RasterBand()
     b.load_array(arr)
-    grad_y = np.array([[-1.5, -1.5, -1.5],
-      [3, 3, 3],
-      [-1.5, -1.5, -1.5]])
-    grad_x = np.array([[-0.5,  1.0, -0.5],
-      [-0.5, 1.0, -0.5],
-      [-0.5, 1.0, -0.5]])
+    grad_y = np.array([[-3.0, -3.0, -3.0],
+      [6, 6, 6],
+      [-3, -3, -3]])
+    grad_x = np.array([[-1.0,  2.0, -1.0],
+      [-1.0, 2.0, -1.0],
+      [-1.0, 2.0, -1.0]])
     (gx, gy) = b.central_diff_gradients()
     self.assertTrue(np.array_equal(gx, grad_x), "X gradients do not match")
     self.assertTrue(np.array_equal(gy, grad_y), "Y gradients do not match")
@@ -325,12 +325,12 @@ class RasterBandTestCase(unittest.TestCase):
     b.blank_raster(3, 3, (1,1), (1,1))
     b.load_array(arr, -99.0)
     self.assertEqual(b.get_projection(), None)
-    grad_y = np.array([[-1.5, np.nan, -1.5],
-      [3, 3.0, 3],
-      [-1.5, np.nan, -1.5]])
-    grad_x = np.array([[-0.5,  1.0, -0.5],
-      [np.nan, 1.0, np.nan],
-      [-0.5, 1.0, -0.5]])
+    grad_y = np.array([[-3.0, np.nan, -3.0],
+      [6.0, 6.0, 6.0],
+      [-3.0, np.nan, -3.0]])
+    grad_x = np.array([[-1.0,  2.0, -1.0],
+      [np.nan, 2.0, np.nan],
+      [-1.0, 2.0, -1.0]])
     (gx, gy) = b.central_diff_gradients()
     self.assertTrue(np.allclose(gx, grad_x, equal_nan=True),
       "X gradients do not match")
@@ -342,15 +342,82 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.blank_raster(3, 3, (1,1), (1,1))
     b.load_array(arr, -99.0)
-    grad_y = np.array([[-1.5, -1.5, np.nan],
-      [3, 3, np.nan],
-      [-1.5, -1.5, -1.5]])
-    grad_x = np.array([[-0.5,  1.0, -0.5],
-      [-0.5, 1.0, -0.5],
-      [np.nan, np.nan, -0.5]])
+    grad_y = np.array([[-3, -3, np.nan],
+      [6.0, 6.0, np.nan],
+      [-3.0, -3.0, -3.0]])
+    grad_x = np.array([[-1.0, 2.0, -1.0],
+      [-1.0, 2.0, -1.0],
+      [np.nan, np.nan, -1.0]])
     (gx, gy) = b.central_diff_gradients()
     self.assertTrue(np.allclose(gx, grad_x, equal_nan=True), "X gradients do not match")
     self.assertTrue(np.allclose(gy, grad_y, equal_nan=True), "Y gradients do not match")
+
+  def test_raster_gradient_slopes(self):
+    arr = [[0, 0, 0], [10, 10, 10], [0, 0, 0]]
+    b = RasterBand()
+    b.load_array(arr)
+    grad_y = [[10, 10, 10], [0, 0, 0], [-10, -10, -10]]
+    (gx, gy) = b.central_diff_gradients()
+    self.assertTrue(np.array_equal(gy, grad_y), "Y gradients do not match")
+
+    expected_y_slope = [[45, 45, 45], [0, 0, 0], [-45, -45, -45]]
+    (sx, sy) = b.central_diff_slopes(10, 10)
+    self.assertTrue(np.array_equal(sy, expected_y_slope), "Y slopes do not match")
+    expected_x_slope = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    self.assertTrue(np.array_equal(sx, expected_x_slope), "X slopes do not match")
+
+  def test_raster_gradient_slopes_x(self):
+    arr = [[0, 10, 0], [0, 10, 0], [0, 10, 0]]
+    b = RasterBand()
+    b.load_array(arr)
+    grad_x = [[10, 0, -10], [10, 0, -10], [10, 0, -10]]
+    (gx, gy) = b.central_diff_gradients()
+    self.assertTrue(np.array_equal(gx, grad_x), "X gradients do not match")
+    expected_x_slope = [[45, 0, -45], [45, 0, -45], [45, 0, -45]]
+    (sx, sy) = b.central_diff_slopes(10, 10)
+    self.assertTrue(np.array_equal(sx, expected_x_slope), "X slopes do not match")
+    expected_y_slope = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    self.assertTrue(np.array_equal(sy, expected_y_slope), "Y slopes do not match")
+
+  def test_raster_slopes_with_built_in_resolution(self):
+    arr = [[0, 1, 0], [0, 1, 0], [0, 1, 0]]
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (-1, 1))
+    b.set_projection(3857)
+    b.load_array(arr)
+    grad_x = [[1, 0, -1], [1, 0, -1], [1, 0, -1]]
+    (gx, gy) = b.central_diff_gradients()
+    self.assertTrue(np.array_equal(gx, grad_x), "X gradients do not match")
+    self.assertTrue(b.lr(), (1, -1))
+
+    degree_change = np.degrees(np.arctan(1))
+    expected_x_slope = [[degree_change, 0, -degree_change],
+      [degree_change, 0, -degree_change],
+      [degree_change, 0, -degree_change]]
+    (sx, sy) = b.central_diff_slopes()
+    self.assertTrue(np.allclose(sx, expected_x_slope), "X slopes do not match")
+    expected_y_slope = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    self.assertTrue(np.allclose(sy, expected_y_slope), "Y slopes do not match")
+
+    (sx, sy) = b.central_diff_slopes(1, 1)
+    self.assertTrue(np.allclose(sx, expected_x_slope), "X slopes do not match")
+    self.assertTrue(np.allclose(sy, expected_y_slope), "Y slopes do not match")
+
+  def test_raster_gradient_slopes_nonequal_resolutions(self):
+    arr = [[0, 1, 0], [0, 1, 0], [0, 1, 0]]
+    b = RasterBand()
+    b.load_array(arr)
+    grad_x = [[1, 0, -1], [1, 0, -1], [1, 0, -1]]
+    (gx, gy) = b.central_diff_gradients()
+    self.assertTrue(np.array_equal(gx, grad_x), "X gradients do not match")
+    degree_change = np.degrees(np.arctan(1/10))
+    expected_x_slope = [[degree_change, 0, -degree_change], 
+      [degree_change, 0, -degree_change],
+      [degree_change, 0, -degree_change]]
+    (sx, sy) = b.central_diff_slopes(10, 10)
+    self.assertTrue(np.allclose(sx, expected_x_slope), "X slopes do not match")
+    expected_y_slope = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    self.assertTrue(np.allclose(sy, expected_y_slope), "Y slopes do not match")
 
   def test_raster_gradients(self):
     arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
