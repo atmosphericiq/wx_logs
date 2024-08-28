@@ -287,10 +287,8 @@ class RasterBand:
     out_raster.SetProjection(self._tif.GetProjection())
 
     # add some metadata with generation date
-    from . import __version__
     now_dt = datetime.datetime.now().isoformat()
     self.set_metadata('GENERATION_DATE', now_dt)
-    self.set_metadata('WXLOGS_VERSION', __version__)
     out_raster.SetMetadata(self.get_metadata())
 
     # now write the data to the file
@@ -376,7 +374,7 @@ class RasterBand:
     return dx, dy
 
   # dx = x resolution, dy = y resolution
-  def periodic_gradients(self, dx=1.0, dy=1.0):
+  def central_diff_gradients(self, dx=1.0, dy=1.0):
     self._throw_except_if_band_not_loaded()
     arr = self.values()
     grad_x = np.zeros_like(arr, dtype=float)

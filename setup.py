@@ -1,9 +1,8 @@
 from setuptools import setup, find_packages
-from wx_logs.__version__ import __version__
 
 setup(
   name='wx_logs',
-  version=__version__,
+  version='0.5.7',
   author='Tom Hayden',
   author_email='thayden@gmail.com',
   packages=find_packages(exclude=['tests', 'tests.*']),

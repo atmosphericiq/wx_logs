@@ -48,7 +48,7 @@ class RasterBandTestCase(unittest.TestCase):
     b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
     b.load_band(1)
     b.set_nodata(-9999)
-    (gx, gy) = b.periodic_gradients()
+    (gx, gy) = b.central_diff_gradients()
     self.assertEqual(b.shape(), (3600, 1660))
 
     # and now load this into its own shape and save to file
@@ -93,7 +93,7 @@ class RasterBandTestCase(unittest.TestCase):
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
     b.set_nodata(-99999)
-    (gx, gy) = b.periodic_gradients()
+    (gx, gy) = b.central_diff_gradients()
     self.assertEqual(b.shape(), (1500, 850))
     self.assertEqual(b.values().shape, (850, 1500)) # opposite bc it calls values() which is rows, cols
     self.assertEqual(gx.shape, (850, 1500)) # opposite bc it calls values() which is rows, cols
@@ -256,12 +256,12 @@ class RasterBandTestCase(unittest.TestCase):
     expected_values = [[2.0, 4.0, 6.0], [8.0, 10.0, 12.0], [14.0, 16.0, 18.0]]
     npt.assert_array_equal(b.values(), expected_values)
 
-  def test_periodic_gradients_back_to_raster(self):
+  def test_central_diff_gradients_back_to_raster(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
     b.set_nodata(-99999)
-    (gx, gy) = b.periodic_gradients()
+    (gx, gy) = b.central_diff_gradients()
     self.assertEqual(b.shape(), (1500, 850))
 
     # now make a new raster with this as the array input
@@ -276,7 +276,7 @@ class RasterBandTestCase(unittest.TestCase):
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
     b.set_nodata(-99999)
-    (gx, gy) = b.periodic_gradients()
+    (gx, gy) = b.central_diff_gradients()
     self.assertEqual(b.shape(), (1500, 850))
 
     # now make a new raster with this as the array input
@@ -305,7 +305,7 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b.band_count(), 1)
     self.assertEqual(b.get_nodata(), -99)
 
-  def test_periodic_gradients(self):
+  def test_central_diff_gradients(self):
     arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
     b = RasterBand()
     b.load_array(arr)
@@ -315,11 +315,11 @@ class RasterBandTestCase(unittest.TestCase):
     grad_x = np.array([[-0.5,  1.0, -0.5],
       [-0.5, 1.0, -0.5],
       [-0.5, 1.0, -0.5]])
-    (gx, gy) = b.periodic_gradients()
+    (gx, gy) = b.central_diff_gradients()
     self.assertTrue(np.array_equal(gx, grad_x), "X gradients do not match")
     self.assertTrue(np.array_equal(gy, grad_y), "Y gradients do not match")
 
-  def test_periodic_gradients_with_nodata(self):
+  def test_central_diff_gradients_with_nodata(self):
     arr = [[1, 2, 3], [4, -99, 6], [7, 8, 9]]
     b = RasterBand()
     b.blank_raster(3, 3, (1,1), (1,1))
@@ -331,13 +331,13 @@ class RasterBandTestCase(unittest.TestCase):
     grad_x = np.array([[-0.5,  1.0, -0.5],
       [np.nan, 1.0, np.nan],
       [-0.5, 1.0, -0.5]])
-    (gx, gy) = b.periodic_gradients()
+    (gx, gy) = b.central_diff_gradients()
     self.assertTrue(np.allclose(gx, grad_x, equal_nan=True),
       "X gradients do not match")
     self.assertTrue(np.allclose(gy, grad_y, equal_nan=True), 
       "Y gradients do not match")
 
-  def test_periodic_grads_with_nodata_on_edge(self):
+  def test_central_diff_grads_with_nodata_on_edge(self):
     arr = [[1, 2, 3], [4, 5, 6], [7, 8, -99.0]]
     b = RasterBand()
     b.blank_raster(3, 3, (1,1), (1,1))
@@ -348,7 +348,7 @@ class RasterBandTestCase(unittest.TestCase):
     grad_x = np.array([[-0.5,  1.0, -0.5],
       [-0.5, 1.0, -0.5],
       [np.nan, np.nan, -0.5]])
-    (gx, gy) = b.periodic_gradients()
+    (gx, gy) = b.central_diff_gradients()
     self.assertTrue(np.allclose(gx, grad_x, equal_nan=True), "X gradients do not match")
     self.assertTrue(np.allclose(gy, grad_y, equal_nan=True), "Y gradients do not match")
 
