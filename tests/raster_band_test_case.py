@@ -34,7 +34,7 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
     b.load_band(1)
-    self.assertEqual(b.get_projection(), 4326)
+    self.assertEqual(b.get_projection(), ('EPSG', 4326))
     self.assertEqual(b.get_nodata(), -9999)
     extent = b.get_extent()
     self.assertAlmostEqual(extent['min_x'], -180.0001389, places=4)
@@ -76,7 +76,7 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
-    self.assertEqual(b.get_projection(), 4326)
+    self.assertEqual(b.get_projection(), ('EPSG', 4326))
     metadata = b.get_metadata()
     self.assertEqual(metadata['TIFFTAG_XRESOLUTION'], '100')
     self.assertEqual(metadata['TIFFTAG_YRESOLUTION'], '100')
@@ -122,9 +122,9 @@ class RasterBandTestCase(unittest.TestCase):
   def test_make_raster_in_4326_and_get_point(self):
     b = RasterBand()
     b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
-    b.set_projection(4326)
+    b.set_projection('EPSG', 4326)
     b.load_array([[1.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
-    self.assertEqual(b.get_projection(), 4326)
+    self.assertEqual(b.get_projection(), ('EPSG', 4326))
     self.assertEqual(b.get_nodata(), -99.0)
     self.assertEqual(b.get_value(-176.0, 75.0), 1.0)
     self.assertEqual(b.get_value(178.0, -75.0), 9.0)
@@ -139,7 +139,7 @@ class RasterBandTestCase(unittest.TestCase):
   def test_extent_from_an_epsg_code(self):
     b = RasterBand()
     b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
-    b.set_projection(4326)
+    b.set_projection('EPSG', 4326)
     b.load_array([[1.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
 
     # get_extent_from_epsg
@@ -151,7 +151,7 @@ class RasterBandTestCase(unittest.TestCase):
   def test_get_extent_for_data(self):
     b = RasterBand()
     b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
-    b.set_projection(4326)
+    b.set_projection('EPSG', 4326)
     b.load_array([[1.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
     extent = b.get_extent()
     self.assertEqual(extent['min_x'], -180.0)
@@ -164,7 +164,7 @@ class RasterBandTestCase(unittest.TestCase):
     r.blank_raster(3, 3, (1, 1), (1, 1))
     r.load_array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
     out_filepath = '/tmp/test.tif'
-    r.set_projection(4326)
+    r.set_projection('EPSG', 4326)
     r.save_to_file(out_filepath)
     self.assertTrue(os.path.exists(out_filepath))
     #cleanup file
@@ -175,7 +175,7 @@ class RasterBandTestCase(unittest.TestCase):
     r.blank_raster(3, 3, (1, 1), (1, 1))
     r.load_array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
     out_filepath = '/tmp/test_compressed.tif'
-    r.set_projection(4326)
+    r.set_projection('EPSG', 4326)
     r.save_to_file(out_filepath, True, True)
     self.assertTrue(os.path.exists(out_filepath))
     #os.remove(out_filepath)
@@ -198,7 +198,7 @@ class RasterBandTestCase(unittest.TestCase):
 
     # nwo write to file and reload it backin
     out_filepath = '/tmp/test_load_from_file.tif'
-    r.set_projection(4326)
+    r.set_projection('EPSG', 4326)
     r.save_to_file(out_filepath)
 
     self.assertTrue(os.path.exists(out_filepath))
@@ -207,7 +207,7 @@ class RasterBandTestCase(unittest.TestCase):
     r2.set_band(1)
     self.assertEqual(r2.width(), r.width())
     self.assertEqual(r2.height(), r.height())
-    self.assertEqual(r2.get_projection(), 4326)
+    self.assertEqual(r2.get_projection(), ('EPSG', 4326))
     npt.assert_array_equal(r.values(), r2.values())
     self.assertEqual(r.get_value(0,0), r2.get_value(0, 0))
     self.assertEqual(r.get_value(3.5, 3.5), 10.0)
@@ -215,10 +215,10 @@ class RasterBandTestCase(unittest.TestCase):
   def test_simple_4326_to_3857_reprojection_small_area(self):
     b = RasterBand()
     b.blank_raster(3, 3, (2, 2), (-3, 3))
-    b.set_projection(4326)
+    b.set_projection('EPSG', 4326)
     b.load_array([[1.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
-    new_b = b.reproject(3857)
-    self.assertEqual(new_b.get_projection(), 3857)
+    new_b = b.reproject('EPSG', 3857)
+    self.assertEqual(new_b.get_projection(), ("EPSG", 3857))
     self.assertEqual(new_b.get_value(0.0, 0.0), None) # dead middle is no data
 
     # test this by comparing to the actual points projected
@@ -238,16 +238,49 @@ class RasterBandTestCase(unittest.TestCase):
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017_3857.tif')
     b.load_band(1)
     b.set_nodata(-99999)
-    new_b = b.reproject(4326)
-    self.assertEqual(new_b.get_projection(), 4326)
+    new_b = b.reproject('EPSG', 4326)
+    self.assertEqual(new_b.get_projection(), ("EPSG", 4326))
+
+  def test_reproject_real_map_from_4325_to_mollweide(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
+    b.load_band(1)
+    b.set_nodata(-99999)
+    MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
+    new_b = b.reproject('PROJ4', MOLLWEIDE)
+    self.assertEqual(new_b.get_projection(), ('PROJ4', MOLLWEIDE))
+
+  def test_reproject_map_to_mollweide_and_calculate_gradients(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
+    b.load_band(1)
+    b.set_nodata(-99999)
+    MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'
+    new_b = b.reproject('PROJ4', MOLLWEIDE)
+    self.assertEqual(new_b.get_projection(), ('PROJ4', MOLLWEIDE))
+    (gx, gy) = new_b.central_diff_gradients()
+
+    # this new map is in mollweide so will have a different width and height
+    self.assertEqual(new_b.shape(),  (2784, 1428))
+    new_b.write_to_file('/tmp/test_mollweide.tif', True, True)
+
+    # now load from the file
+    b2 = RasterBand()
+    b2.loadf('/tmp/test_mollweide.tif')
+    b2.set_band(1)
+
+    # reproject back to 4326 and check size
+    new_b2 = b2.reproject('EPSG', 4326, 1500, 850)
+    self.assertEqual(new_b2.get_projection(), ('EPSG', 4326))
+    self.assertEqual(new_b2.shape(), (1500, 850))
 
   def test_reproject_real_map_from_4326_to_3857(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
     b.set_nodata(-99999)
-    new_b = b.reproject(3857)
-    self.assertEqual(new_b.get_projection(), 3857)
+    new_b = b.reproject('EPSG', 3857)
+    self.assertEqual(new_b.get_projection(), ('EPSG', 3857))
 
   def test_apply_arbitrary_function_to_cells(self):
     b = RasterBand()
@@ -283,13 +316,13 @@ class RasterBandTestCase(unittest.TestCase):
     b2 = b.clone_with_new_data(gx)
     self.assertEqual(b2.band_count(), 1)
     self.assertEqual(b2.shape(), (1500, 850))
-    self.assertEqual(b2.get_projection(), 4326)
+    self.assertEqual(b2.get_projection(), ('EPSG', 4326))
 
   def test_rasterband_projection(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
-    self.assertEqual(b.get_projection(), 4326)
+    self.assertEqual(b.get_projection(), ('EPSG', 4326))
 
   def test_raster_from_numpy_array(self):
     arr = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
@@ -324,7 +357,7 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.blank_raster(3, 3, (1,1), (1,1))
     b.load_array(arr, -99.0)
-    self.assertEqual(b.get_projection(), None)
+    self.assertEqual(b.get_projection(), (None, None))
     grad_y = np.array([[-3.0, np.nan, -3.0],
       [6.0, 6.0, 6.0],
       [-3.0, np.nan, -3.0]])
@@ -383,7 +416,7 @@ class RasterBandTestCase(unittest.TestCase):
     arr = [[0, 1, 0], [0, 1, 0], [0, 1, 0]]
     b = RasterBand()
     b.blank_raster(3, 3, (1, 1), (-1, 1))
-    b.set_projection(3857)
+    b.set_projection('EPSG', 3857)
     b.load_array(arr)
     grad_x = [[1, 0, -1], [1, 0, -1], [1, 0, -1]]
     (gx, gy) = b.central_diff_gradients()

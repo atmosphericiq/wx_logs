@@ -13,7 +13,6 @@ class RasterBand:
   def __init__(self, projection=None):
     self._tif = None
     self._band = None
-    self._epsg_projection = projection
     self._nodata = None
     self._cols = None
     self._rows = None
@@ -24,6 +23,7 @@ class RasterBand:
     self._storage_method = None
     self._extent = None
     self._metadata = None
+    self._projection = (None, None)
 
   def load_url(self, file_url, md5_hash=None):
     logger.debug("opening %s" % file_url)
@@ -43,30 +43,33 @@ class RasterBand:
       (self._pixel_w, self._pixel_h),
       (self._x_origin, self._y_origin))
     new_file.load_array(nparray, self._nodata)
-    new_file.set_projection(self._epsg_projection)
+    new_file.set_projection(self._projection[0], self._projection[1])
     return new_file
 
   def get_projection(self):
-    return self._epsg_projection
+    return self._projection
 
   # sets the projection on the global tif/raster object
-  def set_projection(self, epsg_code):
-    if epsg_code is None:
+  def set_projection(self, proj_type, code):
+    if code is None:
       logger.warning("Can't set projection to None")
       return
-    if epsg_code == self._epsg_projection:
+    if (proj_type, code) == self._projection:
       logger.warning(f"Projection already set to {epsg_code}")
       return
 
-    # except if we already have a projection
-    # and ask if user meant to reproject
-    if self._epsg_projection is not None:
-      raise ValueError(f"Projection already set to {self._epsg_projection}. Did you mean to reproject?")
-
     srs = osr.SpatialReference()
-    srs.ImportFromEPSG(epsg_code)
+    if proj_type == 'EPSG':
+      srs.ImportFromEPSG(code)
+    elif proj_type == 'ESRI':
+      srs.ImportFromESRI(code)
+    elif proj_type == 'PROJ4':
+      srs.ImportFromProj4(code)
+    else:
+      raise ValueError("Unknown projection system")
+
     self._tif.SetProjection(srs.ExportToWkt())
-    self._epsg_projection = epsg_code
+    self._projection = (proj_type, code)
 
   def get_extent(self):
     self._throw_except_if_band_not_loaded()
@@ -95,14 +98,22 @@ class RasterBand:
 
   # reproject will return a new raster band in memory
   # that is in memory but has the new projection
-  def reproject(self, epsg_code):
+  def reproject(self, proj_system='EPSG', code=4326, width=None, height=None):
     self._throw_except_if_band_not_loaded()
     if not self._tif.GetProjection():
       raise ValueError("No projection set on current map. Cannot reproject")
-
+    logger.info(f"Reprojecting from {self._projection} to {proj_system}:{code}")
     to_srs = osr.SpatialReference()
-    to_srs.ImportFromEPSG(epsg_code)
-    if epsg_code == 4326:
+    if proj_system == 'EPSG':
+      to_srs.ImportFromEPSG(code)
+    elif proj_system == 'ESRI':
+      to_srs.ImportFromESRI(code)
+    elif proj_system == 'PROJ4':
+      to_srs.ImportFromProj4(code)
+    else:
+      raise ValueError("Unknown projection system")
+
+    if code == 4326:
       to_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
     from_srs = osr.SpatialReference()
@@ -112,22 +123,31 @@ class RasterBand:
 
     transform = osr.CoordinateTransformation(from_srs, to_srs)
 
+    dest_srs = to_srs.ExportToWkt()
+    logger.info(f"Reprojecting to {dest_srs}")
+
     # use gdal warp which has better parallelism support
-    in_memory_output = gdal.Warp(
-      '', self._tif,
-      dstSRS=to_srs.ExportToWkt(),
-      format='MEM',
-      warpOptions=[
+    params = {'dstSRS': dest_srs,
+      'format': 'MEM',
+      'resampleAlg': gdal.GRA_NearestNeighbour,
+      'warpOptions': [
         'NUM_THREADS=ALL_CPUS',
         'CONFIG GDAL_CACHEMAX 10000'
-      ])
+      ]}
+    if height is not None:
+      params['height'] = height
+    if width is not None:
+      params['width'] = width
+
+    in_memory_output = gdal.Warp(
+      '', self._tif, **params)
 
     new_raster = RasterBand()
     new_raster.blank_raster(self._rows, self._cols,
       (self._pixel_w, self._pixel_h),
       (self._x_origin, self._y_origin))
     new_raster._tif = in_memory_output
-    new_raster.set_projection(epsg_code)
+    new_raster.set_projection(proj_system, code)
     new_raster.set_band(1)   
     return new_raster
 
@@ -181,7 +201,7 @@ class RasterBand:
     epsg_code = srs.GetAttrValue("AUTHORITY", 1)
 
     if epsg_code is not None:
-      self._epsg_projection = int(epsg_code)
+      self._projection = ('EPSG', int(epsg_code))
     else:
       raise ValueError("Could not determine EPSG code from file!")
 
@@ -271,7 +291,7 @@ class RasterBand:
   def save_to_file(self, output_filename, compress=False, overwrite=True):
     if os.path.exists(output_filename) and not overwrite:
       raise ValueError(f"File exists: {output_filename}")
-    if self._epsg_projection is None:
+    if self._projection is None:
       raise ValueError("No projection set on raster")
   
     options = []
