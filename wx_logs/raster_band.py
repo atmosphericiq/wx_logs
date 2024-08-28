@@ -2,7 +2,7 @@ import logging
 import datetime
 import os
 import numpy as np
-import numpy.ma as ma
+from pyproj import CRS
 from osgeo import gdal, ogr, osr
 from .file_storage import FileStorage
 
@@ -23,7 +23,12 @@ class RasterBand:
     self._storage_method = None
     self._extent = None
     self._metadata = None
-    self._projection = (None, None)
+
+    # projection stuff 
+    self._datum = None
+    self._epsg_code = None
+    self._proj4_string = None
+    self._projection_wkt = None
 
   def load_url(self, file_url, md5_hash=None):
     logger.debug("opening %s" % file_url)
@@ -43,33 +48,59 @@ class RasterBand:
       (self._pixel_w, self._pixel_h),
       (self._x_origin, self._y_origin))
     new_file.load_array(nparray, self._nodata)
-    new_file.set_projection(self._projection[0], self._projection[1])
+    new_file.set_projection(self._projection_wkt)
     return new_file
 
   def get_projection(self):
-    return self._projection
+    return self._projection_wkt
+
+  def get_projection_epsg(self):
+    projection_wkt = self.get_projection()
+    if projection_wkt is None:
+      return
+    crs = CRS.from_wkt(projection_wkt)
+    return crs.to_epsg()
+
+  def get_projection_proj4(self):
+    projection_wkt = self.get_projection()
+    if projection_wkt is None:
+      return
+    crs = CRS.from_wkt(projection_wkt)
+    return crs.to_proj4()
 
   # sets the projection on the global tif/raster object
-  def set_projection(self, proj_type, code):
+  # this is only for EPSG projections, if you want others
+  # then you need to call set_projection with full string
+  def set_projection_epsg(self, code):
     if code is None:
       logger.warning("Can't set projection to None")
       return
-    if (proj_type, code) == self._projection:
+    if code == self._epsg_code:
       logger.warning(f"Projection already set to {epsg_code}")
       return
+    crs = CRS.from_epsg(code)
+    projection_wkt = crs.to_wkt()
+    self.set_projection(projection_wkt)
 
+  def set_projection_proj4(self, proj_string):
+    if proj_string is None:
+      logger.warning("Can't set projection to None")
+      return
+    crs = CRS.from_proj4(proj_string)
+    projection_wkt = crs.to_wkt()
+    self.set_projection(projection_wkt)
+
+  def set_projection(self, projection_wkt):
     srs = osr.SpatialReference()
-    if proj_type == 'EPSG':
-      srs.ImportFromEPSG(code)
-    elif proj_type == 'ESRI':
-      srs.ImportFromESRI(code)
-    elif proj_type == 'PROJ4':
-      srs.ImportFromProj4(code)
-    else:
-      raise ValueError("Unknown projection system")
-
+    srs.ImportFromWkt(projection_wkt)
     self._tif.SetProjection(srs.ExportToWkt())
-    self._projection = (proj_type, code)
+
+    # now set the datum, etc
+    crs = CRS.from_wkt(projection_wkt)
+    self._datum = crs.datum
+    self._epsg_code = crs.to_epsg()
+    self._proj4_string = crs.to_proj4()
+    self._projection_wkt = srs.ExportToWkt()
 
   def get_extent(self):
     self._throw_except_if_band_not_loaded()
@@ -96,23 +127,26 @@ class RasterBand:
       raise ValueError(f"Could not determine the extent for EPSG:{epsg_code}")
     return extent
 
+  def reproject_epsg(self, epsg_code, width=None, height=None):
+    crs = CRS.from_epsg(epsg_code)
+    proj_wkt = crs.to_wkt()
+    return self.reproject(proj_wkt, width, height)
+
+  def reproject_proj4(self, proj_string, width=None, height=None):
+    crs = CRS.from_proj4(proj_string)
+    proj_wkt = crs.to_wkt()
+    return self.reproject(proj_wkt, width, height)
+
   # reproject will return a new raster band in memory
   # that is in memory but has the new projection
-  def reproject(self, proj_system='EPSG', code=4326, width=None, height=None):
+  def reproject(self, projection_wkt, width=None, height=None):
     self._throw_except_if_band_not_loaded()
     if not self._tif.GetProjection():
       raise ValueError("No projection set on current map. Cannot reproject")
-    logger.info(f"Reprojecting from {self._projection} to {proj_system}:{code}")
     to_srs = osr.SpatialReference()
-    if proj_system == 'EPSG':
-      to_srs.ImportFromEPSG(code)
-    elif proj_system == 'ESRI':
-      to_srs.ImportFromESRI(code)
-    elif proj_system == 'PROJ4':
-      to_srs.ImportFromProj4(code)
-    else:
-      raise ValueError("Unknown projection system")
-
+    to_srs.ImportFromWkt(projection_wkt)
+    crs = CRS.from_wkt(projection_wkt)
+    code = crs.to_epsg()
     if code == 4326:
       to_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
@@ -147,7 +181,7 @@ class RasterBand:
       (self._pixel_w, self._pixel_h),
       (self._x_origin, self._y_origin))
     new_raster._tif = in_memory_output
-    new_raster.set_projection(proj_system, code)
+    new_raster.set_projection(projection_wkt)
     new_raster.set_band(1)   
     return new_raster
 
@@ -187,6 +221,7 @@ class RasterBand:
     if nodata is not None:
       self.set_nodata(nodata)
 
+  # load raster band from a file
   def loadf(self, gtif):
     logger.debug("opening file %s" % gtif)
     if not os.path.exists(gtif):
@@ -196,14 +231,27 @@ class RasterBand:
   
     # get projection from the file, in particular get the EPSG
     srs = osr.SpatialReference()
-    srs.ImportFromWkt(self._tif.GetProjection())
-    srs.AutoIdentifyEPSG()
-    epsg_code = srs.GetAttrValue("AUTHORITY", 1)
+    projection_wkt = self._tif.GetProjection()
+    srs.ImportFromWkt(projection_wkt)
 
-    if epsg_code is not None:
-      self._projection = ('EPSG', int(epsg_code))
-    else:
-      raise ValueError("Could not determine EPSG code from file!")
+    # use pyproj to parse this projection
+    crs = CRS.from_wkt(projection_wkt)
+    datum = crs.datum
+    epsg_code = crs.to_epsg()
+
+    # we only work with WGS84 maps for now
+    if str(datum) not in ('WGS 84', 'World Geodetic System 1984'):
+      raise ValueError("Only WGS84 maps are supported. Got %s" % datum)
+
+    # get epsg and proj string 
+    epsg_code = crs.to_epsg()
+    proj_string = crs.to_proj4()
+    logger.info(f"Loaded raster with Datum: {datum} EPSG: {epsg_code}")
+    
+    self._datum = datum
+    self._epsg_code = epsg_code
+    self._proj4_string = proj_string
+    self._projection_wkt = projection_wkt
 
   # number of bands in the whole file
   def band_count(self):
@@ -291,7 +339,7 @@ class RasterBand:
   def save_to_file(self, output_filename, compress=False, overwrite=True):
     if os.path.exists(output_filename) and not overwrite:
       raise ValueError(f"File exists: {output_filename}")
-    if self._projection is None:
+    if self._projection_wkt is None:
       raise ValueError("No projection set on raster")
   
     options = []
@@ -410,11 +458,12 @@ class RasterBand:
       x_res = self._pixel_w
     if y_res is None:
       y_res = self._pixel_h
+    logger.info(f"Calculating slopes with x_res={x_res} y_res={y_res}")
     self._throw_except_if_band_not_loaded()
     grad_x, grad_y = self.central_diff_gradients()
     # tan theta = opposite / adj
-    slope_x = np.degrees(np.arctan(grad_x / x_res))
-    slope_y = np.degrees(np.arctan(grad_y / y_res))
+    slope_x = np.degrees(np.arctan(grad_x / (2 * x_res)))
+    slope_y = np.degrees(np.arctan(grad_y / (2 * y_res)))
     return (slope_x, slope_y)
   
   # override the nodata value on everything
