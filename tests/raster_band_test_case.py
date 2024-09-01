@@ -428,12 +428,31 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertTrue(np.allclose(gx, grad_x, equal_nan=True), "X gradients do not match")
     self.assertTrue(np.allclose(gy, grad_y, equal_nan=True), "Y gradients do not match")
 
+  def test_raster_projects_with_correct_geotransforms(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (1, 1))
+    b.load_array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
+    b.set_projection_epsg(4326)
+    b2 = b.reproject_epsg(3857)
+    self.assertEqual(b2.get_projection_epsg(), 3857)
+    self.assertEqual(b2.width(), 3)
+    self.assertEqual(b2.height(), 3)
+    self.assertNotEqual(b2.get_pixel_width(), 1)
+    self.assertNotEqual(b2.get_pixel_height(), 1)
+    self.assertNotEqual(b2.ul()[0], b.ul()[0])
+    self.assertAlmostEqual(b2.mean(), b.mean())
+
   def test_raster_gradient_slopes_on_real_dem_map(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
     b.load_band(1)
     b.set_nodata(-9999)
-    (gx, gy) = b.central_diff_slopes()
+
+    # this map is in units of radians (4326), convert to meters (3857)
+    b2 = b.reproject_epsg(3857, b.width(), b.height())
+    (gx, gy) = b2.central_diff_slopes()
+
+    # confirm some stuff
     max_gx_value = np.nanmax(gx)
     min_gx_value = np.nanmin(gx)
     self.assertGreater(min_gx_value, -90.0)
@@ -445,11 +464,41 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertLess(max_gy_value, 90.0)
 
     # and now load this into its own shape and save to file
-    b2 = RasterBand()
-    b2 = b.clone_with_new_data(gx)
-    self.assertEqual(b2.band_count(), 1)
-    self.assertEqual(b2.shape(), (3600, 1660))
-    b2.write_to_file('/tmp/test_slopes_dem.tif', True, True)
+    b3 = b2.clone_with_new_data(gx)
+    self.assertEqual(b3.band_count(), 1)
+    self.assertEqual(b3.shape(), (3600, 1660))
+    self.assertEqual(b3.get_projection_epsg(), 3857)
+    self.assertEqual(b3.get_no_data(), -9999) # make sure nodata flows thru
+    self.assertAlmostEqual(np.nanmax(gx), b3.max(), places=4) # maxes should be same
+    b3.write_to_file('/tmp/test_slopes_dem.tif', True, True)
+    self.assertAlmostEqual(b3.max(), np.nanmax(gx), places=4)
+    self.assertAlmostEqual(b3.max(), 23.72448, places=3)
+
+  def test_real_reproject_to_mollweide_and_calculate_gx(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
+    b.load_band(1)
+    b.set_nodata(-9999)
+    MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs'
+    new_b = b.reproject_proj4(MOLLWEIDE)
+    self.assertEqual(new_b.get_projection_epsg(), None)
+    self.assertEqual(new_b.get_projection_proj4(), MOLLWEIDE)
+    (gx, gy) = new_b.central_diff_slopes()
+
+    # this new map is in mollweide so will have a different width and height
+    self.assertEqual(new_b.shape(), (3569, 1725))
+
+    b3 = new_b.clone_with_new_data(gx)
+    self.assertEqual(b3.band_count(), 1)
+    self.assertEqual(b3.shape(), (3569, 1725))
+    self.assertLess(b3.max(), 90.0)
+    self.assertGreater(b3.min(), -90.0)
+
+    # reproject back to 4326 and check size
+    b4 = b3.reproject_epsg(4326, 1500, 850)
+    
+    # now write this out
+    b4.write_to_file('/tmp/slopes_moll_to_4326.tif', True, True)
 
   def test_raster_gradient_slopes(self):
     arr = [[0, 0, 0], [10, 10, 10], [0, 0, 0]]
@@ -464,6 +513,22 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertTrue(np.array_equal(sy, expected_y_slope), "Y slopes do not match")
     expected_x_slope = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     self.assertTrue(np.array_equal(sx, expected_x_slope), "X slopes do not match")
+
+  def test_blank_raster_with_dtype_float64(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (1, 1))
+    b.set_projection_epsg(4326)
+    fake_data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]], dtype=np.float64)
+    b.load_array(fake_data)
+    self.assertEqual(b.band_count(), 1)
+    self.assertEqual(b.max(), 9.0)
+    self.assertEqual(b.min(), 1.0)
+
+    # clone it with same data
+    b2 = b.clone_with_new_data(fake_data)
+    self.assertEqual(b2.band_count(), 1)
+    self.assertEqual(b2.max(), 9.0)
+    self.assertEqual(b2.min(), 1.0)
 
   def test_raster_gradient_slopes_x(self):
     arr = [[0, 10, 0], [0, 10, 0], [0, 10, 0]]
@@ -495,6 +560,40 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertTrue(np.allclose(sx[0], expected_x_slope), "X slopes do not match")
     expected_y_slope = [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
     self.assertTrue(np.allclose(sy, expected_y_slope), "Y slopes do not match")
+
+  # N = 0 degrees, E = 90, etc.
+  def test_raster_face_direction_instead_of_slope(self):
+    arr = [[0, 0, 0], [1, 1, 1], [0, 0, 0]] # should be NNN NULLS SSS
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (1, 1))
+    b.set_projection_epsg(4326)
+    b.load_array(arr)
+    sb = b.central_diff_face_bearing()
+    self.assertEqual(sb[0][0], 0.0)
+    self.assertEqual(sb[2][0], 180.0)
+    self.assertEqual(sb[2][2], 180.0)
+    self.assertTrue(np.isnan(sb[1][1]))
+
+  def test_raster_face_pyramid_shape(self):
+    arr = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (1, 1))
+    b.set_projection_epsg(4326)
+    b.load_array(arr)
+
+    # confirm LR
+    lr = b.lr()
+    self.assertEqual(lr, (4, -2))
+
+    # compute and confirm bearings
+    sb = b.central_diff_face_bearing()
+    print(sb)
+    self.assertEqual(sb[0][1], 0.0)
+    self.assertTrue(np.isnan(sb[0][2])) # nan for now bc corner
+    self.assertEqual(sb[2][1], 180.0)
+    self.assertEqual(sb[1][0], 270.0)
+    self.assertEqual(sb[1][2], 90.0)
+    self.assertTrue(np.isnan(sb[1][1]))
 
   def test_raster_gradient_slopes_nonequal_resolutions(self):
     arr = [[0, 1, 0], [0, 1, 0], [0, 1, 0]]

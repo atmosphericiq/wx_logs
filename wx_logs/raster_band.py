@@ -149,19 +149,13 @@ class RasterBand:
     code = crs.to_epsg()
     if code == 4326:
       to_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-
     from_srs = osr.SpatialReference()
     from_srs.ImportFromWkt(self._tif.GetProjection())
     if from_srs.GetAuthorityCode(None) == '4326':
       from_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
-
     transform = osr.CoordinateTransformation(from_srs, to_srs)
 
-    dest_srs = to_srs.ExportToWkt()
-    logger.info(f"Reprojecting to {dest_srs}")
-
-    # use gdal warp which has better parallelism support
-    params = {'dstSRS': dest_srs,
+    params = {'dstSRS': to_srs.ExportToWkt(),
       'format': 'MEM',
       'resampleAlg': gdal.GRA_NearestNeighbour,
       'warpOptions': [
@@ -172,18 +166,28 @@ class RasterBand:
       params['height'] = height
     if width is not None:
       params['width'] = width
+    in_memory_output = gdal.Warp('', self._tif, **params)
 
-    in_memory_output = gdal.Warp(
-      '', self._tif, **params)
+    # this new map has a new set of geotransforms, etc
+    new_pixel_width = abs(in_memory_output.GetGeoTransform()[1])
+    new_pixel_height = abs(in_memory_output.GetGeoTransform()[5])
+    new_x_origin = in_memory_output.GetGeoTransform()[0]
+    new_y_origin = in_memory_output.GetGeoTransform()[3]
 
     new_raster = RasterBand()
     new_raster.blank_raster(self._rows, self._cols,
-      (self._pixel_w, self._pixel_h),
-      (self._x_origin, self._y_origin))
+      (new_pixel_width, new_pixel_height),
+      (new_x_origin, new_y_origin))
     new_raster._tif = in_memory_output
     new_raster.set_projection(projection_wkt)
     new_raster.set_band(1)   
     return new_raster
+
+  def get_pixel_width(self):
+    return self._pixel_w
+
+  def get_pixel_height(self):
+    return self._pixel_h
 
   # This is important, it creates a blank in memory raster
   def blank_raster(self, rows, cols, pixel_widths=(1,1), ul=(0, 0), dtype=gdal.GDT_Float32):
@@ -198,6 +202,15 @@ class RasterBand:
     self._y_origin = ul[1]
     self._pixel_w = pixel_widths[0]
     self._pixel_h = pixel_widths[1]
+
+  def mean(self):
+    return np.nanmean(self.values())
+
+  def max(self):
+    return np.nanmax(self.values())
+
+  def min(self):
+    return np.nanmin(self.values())
 
   # load a numpy array into the raster band
   def load_array(self, nparray, nodata=-9999):
@@ -407,6 +420,9 @@ class RasterBand:
     return (self._x_origin + (self._cols * self._pixel_w / 2.0),
       self._y_origin - (self._rows * self._pixel_h / 2.0))
 
+  def get_no_data(self):
+    return self.get_nodata()
+
   # get nodata from the band and the object here
   def get_nodata(self):
     self._throw_except_if_band_not_loaded()
@@ -466,6 +482,35 @@ class RasterBand:
     slope_y = np.degrees(np.arctan(grad_y / (2 * y_res)))
     return (slope_x, slope_y)
   
+  # this one computes the bearing, where
+  # N=0, E=90, S=180, W=270
+  # it needs to use the gradients first to get the 
+  # delta x, delta y
+  # keep in mind that with most projections Y is going down
+  def central_diff_face_bearing(self):
+    self._throw_except_if_band_not_loaded()
+    delta_x, delta_y = self.central_diff_gradients() 
+    
+    # create a mask of cases where both delta x and delta y are not zero
+    bearings = np.full(delta_x.shape, np.nan)
+    non_zero_mask = (delta_x != 0) | (delta_y != 0)
+
+    # compute the bearings only for elements masked
+    # note that arctan2 a positive result is counterclockwise
+    # and a negative result is clockwise
+    bearing_rad = np.arctan2(-delta_y[non_zero_mask], delta_x[non_zero_mask])
+    bearing_deg = np.degrees(bearing_rad)
+    
+    # negative is counterclockwise so
+    bearing_deg = (90 - bearing_deg) % 360
+
+    # Convert from steepest ascent to steepest descent
+    bearing_deg = (bearing_deg + 180) % 360
+
+    bearings[non_zero_mask] = bearing_deg
+
+    return bearings
+
   # override the nodata value on everything
   def set_nodata(self, nodata):
     self._throw_except_if_band_not_loaded()
