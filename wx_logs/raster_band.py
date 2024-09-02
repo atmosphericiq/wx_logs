@@ -498,15 +498,9 @@ class RasterBand:
     # compute the bearings only for elements masked
     # note that arctan2 a positive result is counterclockwise
     # and a negative result is clockwise
-    bearing_rad = np.arctan2(-delta_y[non_zero_mask], delta_x[non_zero_mask])
-    bearing_deg = np.degrees(bearing_rad)
-    
-    # negative is counterclockwise so
-    bearing_deg = (90 - bearing_deg) % 360
-
-    # Convert from steepest ascent to steepest descent
-    bearing_deg = (bearing_deg + 180) % 360
-
+    bearing_rad = np.arctan2(-delta_x[non_zero_mask], delta_y[non_zero_mask])
+    bearing_deg = np.degrees(bearing_rad) 
+    bearing_deg = np.where(bearing_deg < 0, bearing_deg + 360, bearing_deg)
     bearings[non_zero_mask] = bearing_deg
 
     return bearings

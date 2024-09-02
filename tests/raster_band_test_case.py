@@ -446,7 +446,6 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
     b.load_band(1)
-    b.set_nodata(-9999)
 
     # this map is in units of radians (4326), convert to meters (3857)
     b2 = b.reproject_epsg(3857, b.width(), b.height())
@@ -478,7 +477,6 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
     b.load_band(1)
-    b.set_nodata(-9999)
     MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs'
     new_b = b.reproject_proj4(MOLLWEIDE)
     self.assertEqual(new_b.get_projection_epsg(), None)
@@ -574,6 +572,25 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(sb[2][2], 180.0)
     self.assertTrue(np.isnan(sb[1][1]))
 
+  def test_slopes_edge_case_positive_and_negative(self):
+    arr = [[0, 0, 0, 0], [0, 0, 1, 0], [0, 0, 0, 0], [0, 0, 0, 0]]
+    b = RasterBand()
+    b.blank_raster(4, 4, (1, 1), (1, 1))
+    b.set_projection_epsg(4326)
+    b.load_array(arr)
+    
+    # facing east is positive
+    # facing west is negative
+    row_two_grad = [0, 1, 0, -1]
+    (gx, gy) = b.central_diff_gradients()
+    self.assertTrue(np.array_equal(gx[1], row_two_grad), "X gradients do not match")
+
+    # facing south is positive
+    # facing north is negative
+    col_two_grad = [1, 0, -1, 0]
+    gy_col_two = gy[:, 2]
+    self.assertTrue(np.array_equal(gy_col_two, col_two_grad), "Y gradients do not match")
+
   def test_raster_face_pyramid_shape(self):
     arr = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
     b = RasterBand()
@@ -587,13 +604,45 @@ class RasterBandTestCase(unittest.TestCase):
 
     # compute and confirm bearings
     sb = b.central_diff_face_bearing()
-    print(sb)
     self.assertEqual(sb[0][1], 0.0)
     self.assertTrue(np.isnan(sb[0][2])) # nan for now bc corner
     self.assertEqual(sb[2][1], 180.0)
     self.assertEqual(sb[1][0], 270.0)
     self.assertEqual(sb[1][2], 90.0)
     self.assertTrue(np.isnan(sb[1][1]))
+
+  def test_raster_face_more_complex_5x5_shape(self):
+    arr = [[0, 0, 0, 0, 0], [0, 1, 1, 1, 0], [0, 1, 2, 1, 0], [0, 1, 1, 1, 0], [0, 0, 0, 0, 0]]
+    b = RasterBand()
+    b.blank_raster(5, 5, (1, 1), (1, 1))
+    b.set_projection_epsg(4326)
+    b.load_array(arr)
+
+    sb = b.central_diff_face_bearing()
+    self.assertTrue(np.isnan(sb[2][2])) # peak
+    self.assertTrue(np.isnan(sb[0][0])) # corner
+    self.assertEqual(sb[1][2], 0.0) # north face
+    self.assertEqual(sb[2][1], 270.0) # west face
+    self.assertEqual(sb[3][2], 180.0) # south face
+    self.assertEqual(sb[2][3], 90.0) # east face
+    self.assertEqual(sb[1][1], 360.0 - 45.0) # nw angled face
+    self.assertEqual(sb[1][3], 45.0) # ne angled face
+    self.assertEqual(sb[3][3], 135.0) # se angled face
+    self.assertEqual(sb[3][1], 225.0)
+
+  def test_raster_face_bearings_with_real_map(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
+    b.load_band(1)
+
+    # convert to mollweide
+    MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs'
+    new_b = b.reproject_proj4(MOLLWEIDE)
+    sb = new_b.central_diff_face_bearing()
+
+    # create a file with bearings and write to file
+    b2 = new_b.clone_with_new_data(sb)
+    b2.write_to_file('/tmp/test_face_bearings.tif', True, True)
 
   def test_raster_gradient_slopes_nonequal_resolutions(self):
     arr = [[0, 1, 0], [0, 1, 0], [0, 1, 0]]
