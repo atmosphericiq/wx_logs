@@ -311,6 +311,17 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b.get_projection_epsg(), 3857)
     self.assertEqual(b.get_datum(), 'World Geodetic System 1984')
 
+  def test_reproject_mollweide_function(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
+    b.set_projection_epsg(4326)
+    b.load_array([[1.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
+    MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs'
+    new_b = b.reproject_mollweide()
+    self.assertEqual(new_b.get_projection_epsg(), None)
+    self.assertEqual(new_b.get_projection_proj4(), MOLLWEIDE)
+    self.assertEqual(new_b.get_value(0.0, 0.0), 1.0)
+
   def test_reproject_real_map_from_4325_to_mollweide(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')

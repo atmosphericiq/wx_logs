@@ -8,6 +8,8 @@ from .file_storage import FileStorage
 
 logger = logging.getLogger(__name__)
 
+MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs'
+
 class RasterBand:
 
   def __init__(self, projection=None):
@@ -142,6 +144,10 @@ class RasterBand:
     crs = CRS.from_proj4(proj_string)
     proj_wkt = crs.to_wkt()
     return self.reproject(proj_wkt, width, height)
+
+  def reproject_mollweide(self, width=None, height=None):
+    MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs'
+    return b.reproject_proj4(MOLLWEIDE, width, height)
 
   # reproject will return a new raster band in memory
   # that is in memory but has the new projection
