@@ -51,6 +51,9 @@ class RasterBand:
     new_file.set_projection(self._projection_wkt)
     return new_file
 
+  def get_datum(self):
+    return str(self._datum)
+
   def get_projection(self):
     return self._projection_wkt
 

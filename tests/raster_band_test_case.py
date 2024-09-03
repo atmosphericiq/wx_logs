@@ -252,6 +252,13 @@ class RasterBandTestCase(unittest.TestCase):
     new_b = b.reproject_epsg(4326)
     self.assertEqual(new_b.get_projection_epsg(), 4326)
 
+  def test_real_raster_and_test_datum(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017_3857.tif')
+    b.load_band(1)
+    self.assertEqual(b.get_projection_epsg(), 3857)
+    self.assertEqual(b.get_datum(), 'World Geodetic System 1984')
+
   def test_reproject_real_map_from_4325_to_mollweide(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
