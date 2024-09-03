@@ -57,6 +57,9 @@ class RasterBand:
   def get_projection(self):
     return self._projection_wkt
 
+  def get_projection_wkt(self):
+    return self.get_projection()
+
   def get_projection_epsg(self):
     projection_wkt = self.get_projection()
     if projection_wkt is None:
@@ -345,8 +348,8 @@ class RasterBand:
   # returns the centroid for a given box, where the point
   # is the UL point
   def _centroid(self, x, y):
-    center_x = x + (self._pixel_w/2)
-    center_y = y + (self._pixel_h/2)
+    center_x = x + (self._pixel_w/2) # we go left to right
+    center_y = y - (self._pixel_h/2) # we go from the top down
     return (center_x, center_y)
 
   def write_to_file(self, output_filename, compress=False, overwrite=True):
@@ -360,7 +363,7 @@ class RasterBand:
   
     options = []
     if compress:
-      options = ['COMPRESS=LZW']
+      options = ['COMPRESS=LZW', 'BIGTIFF=YES']
 
     driver = gdal.GetDriverByName('GTiff')
     out_raster = driver.Create(output_filename, 
@@ -392,7 +395,7 @@ class RasterBand:
       else:
         coords = [(x + (j * self._pixel_w), y) for j in range(self._cols)]
       data = self._band.ReadAsArray(0, i, self._cols, 1)[0]
-      data = [d if d != self._nodata else None for d in data]
+      data = [d if d != self._nodata else np.nan for d in data]
       yield list(zip(coords, data))
 
   def get_bbox_polygon(self):

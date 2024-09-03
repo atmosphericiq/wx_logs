@@ -83,6 +83,58 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b4.shape(), (3600, 1660))
     self.assertEqual(b4.get_nodata(), -9999)
 
+  def test_rows_function_which_returns_rows_in_yields(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
+    b.load_band(1)
+    b.set_nodata(-9999)
+    all_rows = list(b.rows())
+    self.assertEqual(len(all_rows), 1660)
+    #for row in b.rows():
+    #  self.assertEqual(len(row), 3600)
+
+  def test_rows_function_make_sure_nodata_come_back_as_nan(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
+    b.load_array([[-99.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
+    rows = list(b.rows())
+    self.assertEqual(len(rows), 3)
+
+    row0 = rows[0]
+    self.assertEqual(len(row0), 3)
+    (corner, value) = row0[0]
+    self.assertTrue(np.isnan(value))
+    self.assertEqual(corner, (-180.0, 90.0))
+
+    (corner, value) = row0[1]
+    self.assertEqual(value, 2.0)
+    self.assertEqual(corner, (-60.0, 90.0))
+    
+    (corner, value) = row0[2]
+    self.assertEqual(value, 3.0)
+    self.assertEqual(corner, (60.0, 90.0))
+
+  def test_rows_function_but_get_centroids_this_time(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
+    b.load_array([[-99.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
+    rows = list(b.rows(True))
+    self.assertEqual(len(rows), 3)
+
+    row0 = rows[0]
+    self.assertEqual(len(row0), 3)
+    (corner, value) = row0[0]
+    self.assertTrue(np.isnan(value))
+    self.assertEqual(corner, (-120.0, 60.0))
+
+    (corner, value) = row0[1]
+    self.assertEqual(value, 2.0)
+    self.assertEqual(corner, (0.0, 60.0))
+    
+    (corner, value) = row0[2]
+    self.assertEqual(value, 3.0)
+    self.assertEqual(corner, (120.0, 60.0))
+
   def test_load_snow_raster_view_metadata(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')

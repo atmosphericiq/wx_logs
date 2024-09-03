@@ -6,3 +6,4 @@ from .wind_rose_test_case import WindRoseTestCase
 from .kriger_test_case import KrigerTestCase
 from .tow_calculator_test_case import TOWCalculatorTestCase
 from .vector_layer_test_case import VectorLayerTestCase
+from .grid_to_point_test_case import GridToPointTestCase
