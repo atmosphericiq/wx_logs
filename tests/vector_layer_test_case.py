@@ -223,3 +223,27 @@ class VectorLayerTestCase(unittest.TestCase):
     (ul, lr) = layer.get_extent()
     self.assertEqual(ul, (-1, 2))
     self.assertEqual(lr, (2, -1))
+
+  def test_apply_arbitrary_function_to_cells(self):
+    b = VectorLayer()
+    b.createmem('test')
+    b.create_layer_epsg('test', 'POINT', 4326)
+    b.add_field_defn('name', ogr.OFTString)
+    geom1 = ogr.Geometry(ogr.wkbPoint)
+    geom1.AddPoint(1, 1)
+    feature1 = b.blank_feature(geom1)
+    feature1.SetField('name', 'pokonos')
+    b.add_feature(feature1)
+
+    # ok now assert the field is set to pokonos
+    for f in b.get_layer():
+      self.assertEqual(f.GetField('name'), 'pokonos')
+    
+    # rename the field to pikachu
+    def rename(x):
+      x.SetField('name', 'pikachu')
+    b.apply_to_features(rename)
+
+    # now assert the field is set to pikachu
+    for f in b.get_layer():
+      self.assertEqual(f.GetField('name'), 'pikachu')

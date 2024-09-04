@@ -377,6 +377,12 @@ class VectorLayer:
   def get_projection_proj4(self):
     return self._proj4_string
 
+  # applies an arbitrary function to all features
+  def apply_to_features(self, func):
+    for feature in self.get_layer():
+      func(feature)
+      self._layer.SetFeature(feature)
+
   def find_distance_m(self, geom1, geom2):
     if type(geom1) == tuple and len(geom1) == 2:
       (x, y) = geom1

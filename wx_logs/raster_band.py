@@ -110,6 +110,32 @@ class RasterBand:
     self._proj4_string = crs.to_proj4()
     self._projection_wkt = srs.ExportToWkt()
 
+  # clips a map to a new extent
+  def clip_to_extent(self, ul, lr):
+    self._throw_except_if_band_not_loaded()
+
+    (ul_row, ul_col) = self._map_xy_to_rowcol(ul[0], ul[1])
+    (lr_row, lr_col) = self._map_xy_to_rowcol(lr[0], lr[1])
+
+    logger.info(f"ul_row={ul_row} ul_col={ul_col} lr_row={lr_row} lr_col={lr_col}")
+
+    if ul_row > lr_row or ul_col > lr_col:
+      raise ValueError("Invalid extent")
+
+    # ok so now grab only elements of the array
+    # that are in the range above
+    data = self._band.ReadAsArray(ul_col, ul_row, lr_col - ul_col, lr_row - ul_row)
+    data = np.where(data == self._nodata, np.nan, data)
+
+    # now create the new clipped raster
+    new_raster = RasterBand()
+    new_raster.blank_raster(lr_row - ul_row, lr_col - ul_col,
+      (self._pixel_w, self._pixel_h),
+      (ul[0], ul[1]))
+    new_raster.load_array(data)
+    new_raster.set_projection(self._projection_wkt)
+    return new_raster
+
   def get_extent(self):
     self._throw_except_if_band_not_loaded()
     return self._extent
@@ -541,6 +567,14 @@ class RasterBand:
     self._throw_except_if_band_not_loaded()
     return self._band.ReadAsArray(col, row, 1, 1).tolist()[0][0]
 
+  # this helper function takes an x,y coordate and returns
+  # which row and column that it maps to, this is useful for 
+  # value lookups or if we're doing some kind of extent clipping
+  def _map_xy_to_rowcol(self, x, y):
+    row = int(np.floor((self._y_origin - y) / self._pixel_h))
+    col = int(np.floor((x - self._x_origin) / self._pixel_w))
+    return row, col
+
   # retrieve a single value at a location
   # the x,y values are in the coordinate system of the raster
   def get_value(self, x, y):
@@ -557,10 +591,8 @@ class RasterBand:
 
     # now we need to figure out which row and column we are in
     # make sure to consider resolution and negative y axis
-    col = int(np.floor(np.abs(self._y_origin - y) / self._pixel_h)) 
-    row = int(np.floor(np.abs(x - self._x_origin) / self._pixel_w))
-
-    data = self._band.ReadAsArray(row, col, 1, 1).tolist()[0][0]
+    row, col = self._map_xy_to_rowcol(x, y)
+    data = self._band.ReadAsArray(col, row, 1, 1).tolist()[0][0]
 
     if data == self._nodata:
       return None

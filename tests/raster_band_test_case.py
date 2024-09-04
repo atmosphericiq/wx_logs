@@ -311,16 +311,45 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b.get_projection_epsg(), 3857)
     self.assertEqual(b.get_datum(), 'World Geodetic System 1984')
 
+  def test_clip_a_real_map_to_new_extent(self):
+    illinois_ul = (-91.5131, 42.4951)
+    illinois_lr = (-87.0199, 36.9869)
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
+    b.load_band(1)
+    self.assertEqual(b.get_projection_epsg(), 4326)
+
+    # now clip this to illinois
+    new_b = b.clip_to_extent(illinois_ul, illinois_lr)
+    self.assertEqual(new_b.get_projection_epsg(), 4326)
+    new_extent = new_b.get_extent()
+
+    # these should be close enough due to clipping
+    self.assertAlmostEqual(new_extent['min_x'], illinois_ul[0], places=1)
+    self.assertAlmostEqual(new_extent['min_y'], illinois_lr[1], places=1)
+    self.assertAlmostEqual(new_extent['max_x'], illinois_lr[0], places=1)
+    self.assertAlmostEqual(new_extent['max_y'], illinois_ul[1], places=1)
+
+    # now save it to file
+    new_b.write_to_file('/tmp/test_clip_to_illinois.tif', True, True)
+
   def test_reproject_mollweide_function(self):
     b = RasterBand()
     b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
     b.set_projection_epsg(4326)
-    b.load_array([[1.0, 2.0, 3.0], [4.0, -99.0, 6.0], [7.0, 8.0, 9.0]], -99.0)
+    b.load_array([[1.0, 2.0, 3.0], [4.0, 9.0, 6.0], [7.0, 8.0, -99.0]], -99.0)
     MOLLWEIDE = '+proj=moll +lon_0=0 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs +type=crs'
     new_b = b.reproject_mollweide()
     self.assertEqual(new_b.get_projection_epsg(), None)
     self.assertEqual(new_b.get_projection_proj4(), MOLLWEIDE)
-    self.assertEqual(new_b.get_value(0.0, 0.0), 1.0)
+    self.assertEqual(new_b.get_value(0.0, 0.0), 9.0)
+
+  def test_clip_to_extent_throws_exception_if_ul_is_not_ul_of_lr(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
+    b.set_projection_epsg(4326)
+    b.load_array([[1.0, 2.0, 3.0], [4.0, 9.0, 6.0], [7.0, 8.0, -99.0]], -99.0)
+    self.assertRaises(ValueError, b.clip_to_extent, (180, 90), (-180, -90))
 
   def test_reproject_real_map_from_4325_to_mollweide(self):
     b = RasterBand()
@@ -795,8 +824,9 @@ class RasterBandTestCase(unittest.TestCase):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
     b.load_band(1)
+    b.set_nodata(-99999)
     self.assertEqual(b.band_count(), 1)
-    value = b.get_value(-97.449, 26.008)
+    value = b.get_value(-97.449, 26.008) # So texas
     self.assertEqual(value, 0)
 
   def test_get_value_at_location(self):
