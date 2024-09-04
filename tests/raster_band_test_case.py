@@ -311,6 +311,23 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b.get_projection_epsg(), 3857)
     self.assertEqual(b.get_datum(), 'World Geodetic System 1984')
 
+  def test_clip_gdem_raster_to_north_america(self):
+    north_america_ul = (-169.0, 84.0)
+    north_america_lr = (-52.0, 24.0)
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/global.gdem.2022-01.05res.tif')
+    b.load_band(1)
+    self.assertEqual(b.get_projection_epsg(), 4326)
+
+    # now clip this to north america
+    new_b = b.clip_to_extent(north_america_ul, north_america_lr)
+    self.assertEqual(new_b.get_projection_epsg(), 4326)
+    new_extent = new_b.get_extent()
+
+    # these should be close enough due to clipping
+    self.assertAlmostEqual(new_extent['max_x'], north_america_lr[0], places=1)
+    self.assertAlmostEqual(new_extent['max_y'], north_america_ul[1], places=1)
+
   def test_clip_a_real_map_to_new_extent(self):
     illinois_ul = (-91.5131, 42.4951)
     illinois_lr = (-87.0199, 36.9869)

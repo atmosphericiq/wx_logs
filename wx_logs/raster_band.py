@@ -122,6 +122,13 @@ class RasterBand:
     if ul_row > lr_row or ul_col > lr_col:
       raise ValueError("Invalid extent")
 
+    # if any values are less than 0 or greater than the rows/cols
+    # then we need to adjust them
+    ul_row = max(0, ul_row)
+    ul_col = max(0, ul_col)
+    lr_row = min(self._rows, lr_row)
+    lr_col = min(self._cols, lr_col)
+
     # ok so now grab only elements of the array
     # that are in the range above
     data = self._band.ReadAsArray(ul_col, ul_row, lr_col - ul_col, lr_row - ul_row)
