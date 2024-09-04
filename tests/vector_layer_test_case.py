@@ -247,3 +247,29 @@ class VectorLayerTestCase(unittest.TestCase):
     # now assert the field is set to pikachu
     for f in b.get_layer():
       self.assertEqual(f.GetField('name'), 'pikachu')
+
+  def test_adding_field_defn_with_bad_type_throws(self):
+    b = VectorLayer()
+    b.createmem('test')
+    b.create_layer_epsg('test', 'POINT', 4326)
+    with self.assertRaises(ValueError):
+      b.add_field_defn('name', 'badtype')
+
+  def test_add_field_and_use_function_to_set_all_values_to_one(self):
+    b = VectorLayer()
+    b.createmem('test')
+    b.create_layer_epsg('test', 'POINT', 4326)
+    geom1 = ogr.Geometry(ogr.wkbPoint)
+    geom1.AddPoint(1, 1)
+    feature1 = b.blank_feature(geom1)
+    b.add_feature(feature1)
+
+    # add a field and set all values to 1
+    b.add_field_defn('v', 'int')
+    def set_value_to_one(x):
+      x.SetField('v', 1)
+    b.apply_to_features(set_value_to_one)
+
+    # now assert the field is set to 1
+    for f in b.get_layer():
+      self.assertEqual(f.GetField('v'), 1)

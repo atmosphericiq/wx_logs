@@ -282,14 +282,15 @@ class VectorLayer:
       logger.info("field name cannot be empty")
       return
 
-    if field_type == 'int':
+    if field_type in (int, 'int', ogr.OFTInteger):
       fd = ogr.FieldDefn(field_name, ogr.OFTInteger)
-    elif field_type == 'float':
+    elif field_type in (float, 'float', ogr.OFTReal):
       fd = ogr.FieldDefn(field_name, ogr.OFTReal)
-    elif field_type == 'str':
+    elif field_type in (str, 'str', ogr.OFTString):
       fd = ogr.FieldDefn(field_name, ogr.OFTString)
     else:
-      fd = ogr.FieldDefn(field_name, ogr.OFTString)
+      raise ValueError("Invalid field type, must be int, float or str. got %s" % field_type)
+
     self._layer.CreateField(fd)
 
   # this will save the layer out to file, which will
