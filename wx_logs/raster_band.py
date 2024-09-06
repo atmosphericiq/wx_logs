@@ -110,6 +110,30 @@ class RasterBand:
     self._proj4_string = crs.to_proj4()
     self._projection_wkt = srs.ExportToWkt()
 
+  # clips a raster map to a vector layer
+  # by creating a mask which is the layer and then
+  # applying it to the raster
+  def clip_to_vector_layer_extent(self, vector_layer):
+    self._throw_except_if_band_not_loaded()
+
+    # make sure vector_layer and raster are in the same projection
+    vector_layer_epsg = vector_layer.get_projection_epsg()
+    raster_epsg = self.get_projection_epsg()
+    if raster_epsg and vector_layer_epsg != raster_epsg:
+      err = f"Vector layer and raster are in different projections: {vector_layer_epsg} != {raster_epsg}"
+      raise ValueError(err)
+    else:
+      vector_layer_proj = vector_layer.get_projection_proj4()
+      raster_proj = self.get_projection_proj4()
+      if vector_layer_proj != raster_proj:
+        err = f"Vector layer and raster are in different projections: {vector_layer_proj} != {raster_proj}"
+        raise ValueError(err)
+
+    extent_dict = vector_layer.get_extent()
+    ul = (extent_dict['min_x'], extent_dict['max_y'])
+    lr = (extent_dict['max_x'], extent_dict['min_y'])
+    return self.clip_to_extent(ul, lr)
+
   # clips a map to a new extent
   def clip_to_extent(self, ul, lr):
     self._throw_except_if_band_not_loaded()

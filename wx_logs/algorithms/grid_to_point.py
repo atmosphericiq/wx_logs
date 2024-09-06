@@ -36,7 +36,7 @@ class GridToPoint:
     for cols in self.raster_band_object.rows(True): # centroid
       for (centroid_points, value) in cols:
         centroid = ogr.Geometry(ogr.wkbPoint)
-        centroid.AddPoint(centroid_points[0], centroid_points[1])
+        centroid.AddPoint_2D(centroid_points[0], centroid_points[1])
 
         feature = vector_layer.blank_feature()
         feature.SetGeometry(centroid)

@@ -200,7 +200,9 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(first_feature.GetGeometryRef().GetY(), geom1.GetY())
 
     # now test the layer extent, which should line up
-    (ul, lr) = layer.get_extent()
+    extent_dict = layer.get_extent()
+    ul = (extent_dict['min_x'], extent_dict['max_y'])
+    lr = (extent_dict['max_x'], extent_dict['min_y'])
     self.assertEqual(ul, (1, 1))
     self.assertEqual(lr, (1, 1))
 
@@ -220,7 +222,10 @@ class VectorLayerTestCase(unittest.TestCase):
     layer.add_feature(layer.blank_feature(point2))
     self.assertEqual(layer.get_feature_count(), 2)
 
-    (ul, lr) = layer.get_extent()
+    extent_dict = layer.get_extent()
+    ul = (extent_dict['min_x'], extent_dict['max_y'])
+    lr = (extent_dict['max_x'], extent_dict['min_y'])
+
     self.assertEqual(ul, (-1, 2))
     self.assertEqual(lr, (2, -1))
 

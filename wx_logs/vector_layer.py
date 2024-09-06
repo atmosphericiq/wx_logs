@@ -70,9 +70,9 @@ class VectorLayer:
 
   def get_extent(self):
     extent = self._layer.GetExtent()
-    ul = (extent[0], extent[3])
-    lr = (extent[1], extent[2])
-    return (ul, lr)
+    min_x, max_x, min_y, max_y = extent
+    payload = {'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y}
+    return payload
 
   # copies an old feature, creates a new one but
   # with the proper layer defn
@@ -302,7 +302,7 @@ class VectorLayer:
       if os.path.isdir(file_path):
         shutil.rmtree(file_path)
     driver = self.auto_determine_driver(file_path)
-    logger.info("saving to %s using driver %s" % (file_path, driver.GetName))
+    logger.info("saving to %s using driver %s" % (file_path, driver.GetName()))
     out_ds = driver.CreateDataSource(file_path)
     out_layer = out_ds.CreateLayer(self._layer.GetName(),
       srs=self._layer.GetSpatialRef(),

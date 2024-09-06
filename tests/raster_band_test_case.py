@@ -4,6 +4,7 @@ from osgeo import ogr, osr
 import numpy as np
 import numpy.testing as npt
 from wx_logs import RasterBand
+from wx_logs import VectorLayer
 
 class RasterBandTestCase(unittest.TestCase):
 
@@ -327,6 +328,40 @@ class RasterBandTestCase(unittest.TestCase):
     # these should be close enough due to clipping
     self.assertAlmostEqual(new_extent['max_x'], north_america_lr[0], places=1)
     self.assertAlmostEqual(new_extent['max_y'], north_america_ul[1], places=1)
+
+  def test_clip_map_to_a_specific_shapefile_extent(self):
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
+    b.load_band(1)
+
+    s = VectorLayer()
+    s.load_url('https://public-images.engineeringdirector.com/dem/illinois.boundaries.gpkg')
+    self.assertEqual(s.get_projection_epsg(), 4326)
+    self.assertEqual(s.get_datum(), 'World Geodetic System 1984')
+    self.assertEqual(s.get_feature_count(), 1)
+    shape_extent = s.get_extent()
+
+    # now clip the raster to the shapefile
+    new_b = b.clip_to_vector_layer_extent(s)
+
+    # confirm the extents line up
+    extent = new_b.get_extent()
+    self.assertAlmostEqual(extent['min_x'], shape_extent['min_x'], places=1)
+    self.assertAlmostEqual(extent['min_y'], shape_extent['min_y'], places=1)
+    self.assertAlmostEqual(extent['max_x'], shape_extent['max_x'], places=1)
+    self.assertAlmostEqual(extent['max_y'], shape_extent['max_y'], places=1)
+
+  def test_clipping_to_map_with_different_projection_throws_exception(self):
+    vector_url = 'https://public-images.engineeringdirector.com/dem/illinois.boundaries.3857.gpkg'
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
+    b.load_band(1)
+    
+    s = VectorLayer()
+    s.load_url(vector_url)
+
+    # this should throw an exception
+    self.assertRaises(ValueError, b.clip_to_vector_layer_extent, s)
 
   def test_clip_a_real_map_to_new_extent(self):
     illinois_ul = (-91.5131, 42.4951)
