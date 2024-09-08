@@ -318,6 +318,10 @@ class VectorLayer:
       field_name = field_def.GetName()
       logger.info("adding field %s" % field_name)
       out_layer.CreateField(field_def)
+
+    save_count = 0
+    total_features = self.get_feature_count()
+    logger.info("saving %s features to file" % total_features)
     for feature in self._layer:
       geom = feature.GetGeometryRef()
       new_feature = ogr.Feature(out_layer.GetLayerDefn())
@@ -328,7 +332,12 @@ class VectorLayer:
         new_feature.SetField(field_name, field_value)
       new_feature.SetFID(feature.GetFID())
       out_layer.CreateFeature(new_feature)
+      save_count += 1
+      if save_count % 1000 == 0:
+        logger.info(f"saved {save_count}/{total_features} features")
 
+  # figure out which type of file we are dealing with
+  # so we can use the right ogr driver to open it
   def auto_determine_driver(self, filename):
     if 'gdb' in filename:
       return ogr.GetDriverByName('OpenFileGDB')

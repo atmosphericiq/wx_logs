@@ -377,12 +377,15 @@ class RasterBandTestCase(unittest.TestCase):
     # now clip the raster to the shapefile
     new_b = b.clip_to_vector_layer_extent(s)
 
-    # confirm the extents line up
+    # confirm the extents line up, mostly
     extent = new_b.get_extent()
     self.assertAlmostEqual(extent['min_x'], shape_extents['min_x'], places=1)
     self.assertAlmostEqual(extent['min_y'], shape_extents['min_y'], places=1)
     self.assertAlmostEqual(extent['max_x'], shape_extents['max_x'], places=1)
     self.assertAlmostEqual(extent['max_y'], shape_extents['max_y'], places=1)
+
+    # write this to a temp file
+    new_b.write_to_file('/tmp/test_clip_to_oregon.tif', True, True)
 
   def test_clip_a_real_map_to_new_extent(self):
     illinois_ul = (-91.5131, 42.4951)
@@ -762,6 +765,25 @@ class RasterBandTestCase(unittest.TestCase):
     col_two_grad = [1, 0, -1, 0]
     gy_col_two = gy[:, 2]
     self.assertTrue(np.array_equal(gy_col_two, col_two_grad), "Y gradients do not match")
+
+  def test_raster_face_inverted_pyramid_shape(self):
+    arr = [[1, 1, 1], [1, 0, 1], [1, 1, 1]]
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (1, 1))
+    b.set_projection_epsg(4326)
+    b.load_array(arr)
+
+    # confirm LR
+    lr = b.lr()
+    self.assertEqual(lr, (4, -2))
+
+    # compute and confirm bearings
+    sb = b.central_diff_face_bearing()
+    self.assertTrue(np.isnan(sb[0][2]))
+    self.assertEqual(sb[0][1], 180.0) # facing south
+    self.assertEqual(sb[2][1], 0.0) # north
+    self.assertEqual(sb[1][0], 90.0) # east
+    self.assertEqual(sb[1][2], 270.0) # west
 
   def test_raster_face_pyramid_shape(self):
     arr = [[0, 0, 0], [0, 1, 0], [0, 0, 0]]
