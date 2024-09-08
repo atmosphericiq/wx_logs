@@ -42,16 +42,26 @@ class RasterBand:
   # this clones the raster band, returning a new 
   # raster band (using load array) but with the 
   # current ones parameters like transforms, etc
-  def clone_with_new_data(self, nparray):
-    assert nparray.shape[0] == self._rows, "Rows do not match"
-    assert nparray.shape[1] == self._cols, "Cols do not match"
+  def clone_with_new_data(self, nparray=None):
+    if nparray is not None: # if we have new data
+      assert nparray.shape[0] == self._rows, "Rows do not match"
+      assert nparray.shape[1] == self._cols, "Cols do not match"
     new_file = RasterBand()
     new_file.blank_raster(self._rows, self._cols, 
       (self._pixel_w, self._pixel_h),
       (self._x_origin, self._y_origin))
+
+    if nparray is None:
+      nparray = np.full((self._rows, self._cols), self._nodata)
+
     new_file.load_array(nparray, self._nodata)
     new_file.set_projection(self._projection_wkt)
     return new_file
+
+  def clone_with_no_data(self):
+    if self.get_nodata() is None:
+      raise ValueError("No nodata set on parent")
+    return self.clone_with_new_data(None)
 
   def get_datum(self):
     return str(self._datum)

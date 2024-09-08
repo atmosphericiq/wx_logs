@@ -838,6 +838,20 @@ class RasterBandTestCase(unittest.TestCase):
     b2 = new_b.clone_with_new_data(sb)
     b2.write_to_file('/tmp/test_face_bearings.tif', True, True)
 
+  def test_raster_cloning_but_with_empty_data(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (1, 1))
+    b.set_projection_epsg(4326)
+    b.set_band(1)
+    b.set_nodata(-99)
+    b2 = b.clone_with_no_data()
+    self.assertEqual(b2.band_count(), 1)
+    self.assertEqual(b2.shape(), (3, 3))
+    self.assertEqual(b2.get_projection_epsg(), 4326)
+
+    values = b2.values()
+    self.assertTrue(np.all(np.isnan(values)))
+
   def test_raster_gradient_slopes_nonequal_resolutions(self):
     arr = [[0, 1, 0], [0, 1, 0], [0, 1, 0]]
     b = RasterBand()
