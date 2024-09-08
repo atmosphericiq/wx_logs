@@ -49,7 +49,13 @@ class VectorLayer:
     fs = FileStorage()
     fs.set_file_url(file_url)
     fs.download()
-    self.loadf(fs.get_full_path_to_file())
+     
+    # if its a zip file, we need to unzip the file
+    # and then pick the new path as the file we load
+    if fs.is_zip_file() is True:
+      fs.unzip()
+
+    return self.loadf(fs.get_full_path_to_file())
 
   def get_feature_count(self):
     feature_count = self._layer.GetFeatureCount()
@@ -334,6 +340,8 @@ class VectorLayer:
       return ogr.GetDriverByName('GeoJSON')
     elif 'kml' in filename:
       return ogr.GetDriverByName('KML')
+    elif 'vrt' in filename:
+      return ogr.GetDriverByName('VRT')
     else:
       raise Exception("Unknown vector format for %s" % filename)
 

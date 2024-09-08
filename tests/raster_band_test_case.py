@@ -363,6 +363,27 @@ class RasterBandTestCase(unittest.TestCase):
     # this should throw an exception
     self.assertRaises(ValueError, b.clip_to_vector_layer_extent, s)
 
+  def test_clip_to_another_shapefile_gdb(self):
+    vector_url = 'https://public-images.engineeringdirector.com/dem/Oregon_State_Boundary_6507293181691922778.zip'
+
+    b = RasterBand()
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
+    b.load_band(1)
+
+    s = VectorLayer()
+    s.load_url(vector_url)
+    shape_extents = s.get_extent()
+
+    # now clip the raster to the shapefile
+    new_b = b.clip_to_vector_layer_extent(s)
+
+    # confirm the extents line up
+    extent = new_b.get_extent()
+    self.assertAlmostEqual(extent['min_x'], shape_extents['min_x'], places=1)
+    self.assertAlmostEqual(extent['min_y'], shape_extents['min_y'], places=1)
+    self.assertAlmostEqual(extent['max_x'], shape_extents['max_x'], places=1)
+    self.assertAlmostEqual(extent['max_y'], shape_extents['max_y'], places=1)
+
   def test_clip_a_real_map_to_new_extent(self):
     illinois_ul = (-91.5131, 42.4951)
     illinois_lr = (-87.0199, 36.9869)

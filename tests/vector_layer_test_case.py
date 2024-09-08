@@ -278,3 +278,15 @@ class VectorLayerTestCase(unittest.TestCase):
     # now assert the field is set to 1
     for f in b.get_layer():
       self.assertEqual(f.GetField('v'), 1)
+
+  def test_shapefile_that_is_simple_but_gdb(self):
+    vector_url = 'https://public-images.engineeringdirector.com/dem/Oregon_State_Boundary_6507293181691922778.zip'
+    s = VectorLayer()
+    s.load_url(vector_url)
+    shape_extents = s.get_extent()
+
+    self.assertEqual(s.get_feature_count(), 1703)
+    self.assertEqual(shape_extents['min_x'], -124.7038190439999426)
+    self.assertEqual(shape_extents['max_x'], -116.4630390559999569)
+    self.assertEqual(shape_extents['min_y'], 41.9920871570000713)
+    self.assertEqual(shape_extents['max_y'], 46.2923973030000298)

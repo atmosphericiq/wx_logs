@@ -235,7 +235,7 @@ class RasterBand:
       params['height'] = height
     if width is not None:
       params['width'] = width
-    in_memory_output = gdal.Warp('', self._tif, **params)
+    in_memory_output = gdal.Warp('', self._tif, **params) # MAIN CALL
 
     # this new map has a new set of geotransforms, etc
     new_pixel_width = abs(in_memory_output.GetGeoTransform()[1])
