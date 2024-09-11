@@ -458,6 +458,26 @@ class RasterBand:
     out_band.WriteArray(self._band.ReadAsArray())
     out_band.FlushCache()
 
+  def add_row(self, row_number, row_data):
+    self._throw_except_if_band_not_loaded()
+    
+    # make sure row has the right width
+    if len(row_data) != self._cols:
+      raise ValueError("Row data does not match width of raster")
+
+    # make sure row number is in bounds
+    if row_number < 0 or row_number >= self._rows:
+      raise ValueError("Row number out of bounds")
+
+    # if its a list, convert to an numpy array
+    # and reshape
+    if type(row_data) is list:
+      row_data = np.array(row_data)
+      row_data = row_data.reshape(1, -1)
+
+    # then replace the existing data with this new data
+    self._band.WriteArray(row_data, 0, row_number)
+
   def rows(self, return_centroids=False):
     for i in range(self._rows):
       y = self._y_origin - (i * self._pixel_h)

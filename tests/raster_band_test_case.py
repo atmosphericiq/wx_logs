@@ -329,6 +329,22 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertAlmostEqual(new_extent['max_x'], north_america_lr[0], places=1)
     self.assertAlmostEqual(new_extent['max_y'], north_america_ul[1], places=1)
 
+  def test_raster_band_adding_one_row_at_a_time(self):
+    row1 = [1, 2, 3]
+    row2 = [4, 5, 6]
+    row3 = [7, 8, 9]
+
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (-1, 1))
+    b.load_band(1)
+    b.add_row(0, row1)
+    b.add_row(1, row2)
+    b.add_row(2, row3)
+
+    self.assertEqual(b.get_projection_epsg(), None)
+    self.assertEqual(b.sum(), 45)
+    self.assertEqual(b.get_value(0, 0), 5)
+
   def test_clip_map_to_a_specific_shapefile_extent(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')
