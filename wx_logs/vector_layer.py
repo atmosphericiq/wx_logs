@@ -447,6 +447,15 @@ class VectorLayer:
     return geom1.Distance(geom2)
 
   def find_nearest_feature(self, x, y, bounding_shape=None):
+    sorted_records = self.find_nearest_features(x, y, bounding_shape)
+    if len(sorted_records) > 0:
+      closest = sorted_records[0][0]
+      return closest
+    return None
+
+  # returns a list of all features and distances in the 
+  # native projection 
+  def find_nearest_features(self, x, y, bounding_shape=None):
     point = ogr.Geometry(ogr.wkbPoint)
     point.AddPoint_2D(x, y)
     if type(bounding_shape) is float:
@@ -456,10 +465,7 @@ class VectorLayer:
       self._layer.SetSpatialFilter(bounding_shape)
     dists = [(f, point.Distance(f.GetGeometryRef())) for f in self._layer]
     sorted_records = sorted(dists, key=lambda i: i[1])
-    if len(sorted_records) > 0:
-      closest = sorted_records[0][0]
-      return closest
-    return None
+    return sorted_records
 
   # method which will serialize the entire object into something
   # that can be deserialized and reloaded. Features is optional and

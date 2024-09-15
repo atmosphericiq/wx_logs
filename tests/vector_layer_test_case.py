@@ -23,7 +23,7 @@ class VectorLayerTestCase(unittest.TestCase):
 
     # make a osgeo geom
     point = ogr.Geometry(ogr.wkbPoint)
-    point.AddPoint(1, 1)
+    point.AddPoint_2D(1, 1)
     feature1.SetGeometry(point)
     layer.add_feature(feature1)
 
@@ -31,7 +31,7 @@ class VectorLayerTestCase(unittest.TestCase):
 
     # add another
     point = ogr.Geometry(ogr.wkbPoint)
-    point.AddPoint(2, 2)
+    point.AddPoint_2D(2, 2)
     feature2.SetGeometry(point)
     layer.add_feature(feature2)
 
@@ -42,13 +42,13 @@ class VectorLayerTestCase(unittest.TestCase):
     layer.createmem('test')
     layer.create_layer_epsg('test', 'POINT', 4326)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = layer.blank_feature(geom1)
     layer.add_feature(feature1)
 
     # add another feature
     geom2 = ogr.Geometry(ogr.wkbPoint)
-    geom2.AddPoint(2, 2)
+    geom2.AddPoint_2D(2, 2)
     feature2 = layer.blank_feature(geom2)
     layer.add_feature(feature2)
   
@@ -65,7 +65,7 @@ class VectorLayerTestCase(unittest.TestCase):
     layer.create_layer_epsg('test', 'POINT', 4326)
     layer.add_field_defn('name', ogr.OFTString)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = layer.blank_feature(geom1)
     feature1.SetField('name', 'pokonos')
     layer.add_feature(feature1)
@@ -83,7 +83,7 @@ class VectorLayerTestCase(unittest.TestCase):
     layer.create_layer_epsg('test', 'POINT', 4326)
     layer.add_field_defn('name', ogr.OFTString)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = layer.blank_feature(geom1)
     feature1.SetField('name', 'pokonos')
     layer.add_feature(feature1)
@@ -121,7 +121,7 @@ class VectorLayerTestCase(unittest.TestCase):
     
     # make a feature for chicago
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(-87.6298, 41.8781)
+    geom1.AddPoint_2D(-87.6298, 41.8781)
     feature1 = layer.blank_feature(geom1)
     feature1.SetField('name', 'chicago')
     layer.add_feature(feature1)
@@ -129,7 +129,7 @@ class VectorLayerTestCase(unittest.TestCase):
 
     # make a second feature for milwaukee
     geom2 = ogr.Geometry(ogr.wkbPoint)
-    geom2.AddPoint(-87.9065, 43.0389)
+    geom2.AddPoint_2D(-87.9065, 43.0389)
     feature2 = layer.blank_feature(geom2)
     feature2.SetField('name', 'milwaukee')
     layer.add_feature(feature2)
@@ -177,7 +177,7 @@ class VectorLayerTestCase(unittest.TestCase):
  
     # make a point where chicago is and buffer
     chicago = ogr.Geometry(ogr.wkbPoint)
-    chicago.AddPoint(-87.6298, 41.8781)
+    chicago.AddPoint_2D(-87.6298, 41.8781)
     buffer = chicago.Buffer(1)
 
     # now filter the layer and count features
@@ -193,7 +193,7 @@ class VectorLayerTestCase(unittest.TestCase):
     layer.createmem('test')
     layer.create_layer_epsg('test', 'POINT', 4326)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(-87.6298, 41.8781)
+    geom1.AddPoint_2D(-87.6298, 41.8781)
     layer.add_field_defn('name', ogr.OFTString)
 
     feature1 = layer.blank_feature(geom1)
@@ -227,7 +227,7 @@ class VectorLayerTestCase(unittest.TestCase):
     layer.createmem('test')
     layer.create_layer_epsg('test', 'POINT', 4326)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = layer.blank_feature(geom1)
     added_feature = layer.add_feature(feature1)
     self.assertEqual(layer.get_feature_count(), 1)
@@ -253,9 +253,9 @@ class VectorLayerTestCase(unittest.TestCase):
     layer.createmem('test')
     layer.create_layer_epsg('test', 'POINT', 4326)
     point1 = ogr.Geometry(ogr.wkbPoint)
-    point1.AddPoint(-1, -1)
+    point1.AddPoint_2D(-1, -1)
     point2 = ogr.Geometry(ogr.wkbPoint)
-    point2.AddPoint(2, 2)
+    point2.AddPoint_2D(2, 2)
 
     self.assertEqual(point1.GetX(), -1)
     self.assertEqual(point1.GetY(), -1)
@@ -271,13 +271,66 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(ul, (-1, 2))
     self.assertEqual(lr, (2, -1))
 
+  def test_find_nearest_features(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 3857)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, -1)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 2)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 3)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    self.assertEqual(layer.get_feature_count(), 3)
+
+    # now find the nearest feature to 0,0
+    distances = layer.find_nearest_features(0, 0)
+    nearest = layer.find_nearest_feature(0, 0)
+
+    self.assertEqual(nearest.GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(nearest.GetGeometryRef().GetY(), -1)
+
+    # now find the distances from all features
+    distances = layer.find_nearest_features(0, 0)
+    self.assertEqual(len(distances), 3)
+    
+    # first object should be distance 1 away
+    self.assertEqual(distances[0][1], 1.0)
+    self.assertEqual(distances[1][1], 2.0)
+    self.assertEqual(distances[2][1], 3.0)
+
+  def test_nearest_feature_with_spherical_projection(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 4326)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, 0)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 1)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 2)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    self.assertEqual(layer.get_feature_count(), 3)
+
+    # now find the nearest feature to 0,0
+    nearest = layer.find_nearest_feature(41.8781, -87.6298)
+    self.assertEqual(nearest.GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(nearest.GetGeometryRef().GetY(), 0.0)
+
   def test_apply_arbitrary_function_to_cells(self):
     b = VectorLayer()
     b.createmem('test')
     b.create_layer_epsg('test', 'POINT', 4326)
     b.add_field_defn('name', ogr.OFTString)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = b.blank_feature(geom1)
     feature1.SetField('name', 'pokonos')
     b.add_feature(feature1)
@@ -313,7 +366,7 @@ class VectorLayerTestCase(unittest.TestCase):
     b.create_layer_epsg('test', 'POINT', 4326)
     b.add_field_defn('something', ogr.OFTString)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = b.blank_feature(geom1)
     feature1.SetField('something', 'pokonos')
     b.add_feature(feature1)
@@ -342,7 +395,7 @@ class VectorLayerTestCase(unittest.TestCase):
     b.create_layer_epsg('test', 'POINT', 4326)
     b.add_field_defn('something', ogr.OFTString)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = b.blank_feature(geom1)
     feature1.SetField('something', 'pokonos')
     b.add_feature(feature1)
@@ -362,12 +415,15 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(deserialize.get_driver_name(), 'GPKG')
     self.assertEqual(deserialize.get_file_path(), b.get_file_path())
 
+    # delete the file
+    os.remove('/tmp/test.materialized.gpkg')
+
   def test_add_field_and_use_function_to_set_all_values_to_one(self):
     b = VectorLayer()
     b.createmem('test')
     b.create_layer_epsg('test', 'POINT', 4326)
     geom1 = ogr.Geometry(ogr.wkbPoint)
-    geom1.AddPoint(1, 1)
+    geom1.AddPoint_2D(1, 1)
     feature1 = b.blank_feature(geom1)
     b.add_feature(feature1)
 

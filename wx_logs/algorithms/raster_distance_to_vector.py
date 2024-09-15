@@ -19,11 +19,15 @@ logger = logging.getLogger(__name__)
 # for each row, we're going to want to open up the 
 # vector file in read mode, filter it and then find
 # distances
-def calculate_row(row_data):
+def calculate_row(row_data, vector_serialized):
+  vector = VectorLayer()
+  vector.deserialize(vector_serialized)
   row_output = []
   for (center_pt, col) in row_data:
     center_geom = ogr.Geometry(ogr.wkbPoint)
     center_geom.AddPoint(center_pt[0], center_pt[1])
+
+
     row_output.append(1)
   return row_output
 
@@ -47,8 +51,9 @@ class RasterDistanceToVector:
       for row in self.raster_band.rows(True):
 
         # serialize the vector object so we can use it in workers
+        serialized = vector_layer.serialize()
 
-        result_row = pool.apply_async(calculate_row, args=(row,))
+        result_row = pool.apply_async(calculate_row, args=(row, serialized))
         pool_of_rows.append(result_row)
         if len(pool_of_rows) % 100 == 0:
           logging.info(f"Putting {len(pool_of_rows)}/{total_rows} rows into queue")
