@@ -1,4 +1,5 @@
 import unittest
+import json
 import os
 from osgeo import ogr, osr
 from wx_logs import VectorLayer
@@ -9,6 +10,8 @@ class VectorLayerTestCase(unittest.TestCase):
     layer = VectorLayer()
     layer.createmem('test')
     layer.create_layer_epsg('test', 'POINT', 4326)
+    self.assertEqual(layer.get_file_path(), None)
+    self.assertEqual(layer.get_driver_name(), 'MEMORY')
     self.assertEqual(layer.get_name(), 'test')
 
   def test_layer_couple_features(self):
@@ -103,10 +106,49 @@ class VectorLayerTestCase(unittest.TestCase):
     url = 'https://public-images.engineeringdirector.com/dem/wholefoods.gpkg'
     layer = VectorLayer()
     layer.load_url(url)
+    self.assertEqual(layer.get_driver_name(), 'GPKG')
     self.assertEqual(layer.get_name(), 'wholefoods')
     self.assertEqual(layer.get_datum(), 'World Geodetic System 1984')
     self.assertEqual(layer.get_projection_epsg(), 4326)
     self.assertEqual(layer.get_feature_count(), 476)
+
+  def test_make_layer_and_materialize_and_confirm_driver(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 4326)
+    layer.add_field_defn('name', ogr.OFTString)
+    self.assertEqual(layer.get_driver_name(), 'MEMORY')
+    
+    # make a feature for chicago
+    geom1 = ogr.Geometry(ogr.wkbPoint)
+    geom1.AddPoint(-87.6298, 41.8781)
+    feature1 = layer.blank_feature(geom1)
+    feature1.SetField('name', 'chicago')
+    layer.add_feature(feature1)
+    self.assertEqual(layer.get_feature_count(), 1)
+
+    # make a second feature for milwaukee
+    geom2 = ogr.Geometry(ogr.wkbPoint)
+    geom2.AddPoint(-87.9065, 43.0389)
+    feature2 = layer.blank_feature(geom2)
+    feature2.SetField('name', 'milwaukee')
+    layer.add_feature(feature2)
+    self.assertEqual(layer.get_feature_count(), 2)
+
+    # now materialize it into a gpkg file
+    layer.materialize('/tmp/test.gpkg', True)
+    self.assertEqual(layer.get_driver_name(), 'GPKG')
+    self.assertEqual(layer.get_file_path(), '/tmp/test.gpkg')
+
+    # now get the one feature
+    features = [f for f in layer.get_layer()]
+    feature0 = features[0]
+    self.assertEqual(feature0.GetField('name'), 'chicago')
+    feature1 = features[1]
+    self.assertEqual(feature1.GetField('name'), 'milwaukee')
+      
+    # now delete the test file
+    os.remove('/tmp/test.gpkg')
 
   def test_load_from_url_clone_to_memory_object(self):
     url = 'https://public-images.engineeringdirector.com/dem/wholefoods.gpkg'
@@ -259,6 +301,66 @@ class VectorLayerTestCase(unittest.TestCase):
     b.create_layer_epsg('test', 'POINT', 4326)
     with self.assertRaises(ValueError):
       b.add_field_defn('name', 'badtype')
+
+  # we have a serialize method which will serialize the 
+  # definition of the vector layer but leave off any of the
+  # non-threadsafe Swig objects. If it's an in-memory layer
+  # then we basically serialize the whole feature set
+  # as a geojson
+  def test_serialize_method(self):
+    b = VectorLayer()
+    b.createmem('test')
+    b.create_layer_epsg('test', 'POINT', 4326)
+    b.add_field_defn('something', ogr.OFTString)
+    geom1 = ogr.Geometry(ogr.wkbPoint)
+    geom1.AddPoint(1, 1)
+    feature1 = b.blank_feature(geom1)
+    feature1.SetField('something', 'pokonos')
+    b.add_feature(feature1)
+
+    # test the get_fields method returns
+    fields = b.get_fields()
+    something_field = fields['something']
+    self.assertEqual(something_field['type'], 'str')
+
+    # now serialize the layer
+    serialized = b.serialize(True)
+    serialized_json = json.loads(serialized)
+    self.assertEqual(serialized_json['name'], 'test')
+
+    deserialize = VectorLayer()
+    deserialize.deserialize(serialized)
+    self.assertEqual(deserialize.get_name(), b.get_name())
+    self.assertEqual(deserialize.get_datum(), b.get_datum())
+    self.assertEqual(deserialize.get_fields(), b.get_fields())
+    self.assertEqual(deserialize.get_projection_epsg(), b.get_projection_epsg())
+    self.assertEqual(deserialize.get_feature_count(), b.get_feature_count())
+
+  def test_serialize_file_on_disk_and_reload(self):
+    b = VectorLayer()
+    b.createmem('test')
+    b.create_layer_epsg('test', 'POINT', 4326)
+    b.add_field_defn('something', ogr.OFTString)
+    geom1 = ogr.Geometry(ogr.wkbPoint)
+    geom1.AddPoint(1, 1)
+    feature1 = b.blank_feature(geom1)
+    feature1.SetField('something', 'pokonos')
+    b.add_feature(feature1)
+
+    # materialize to disk
+    b.materialize('/tmp/test.materialized.gpkg')
+    s = b.serialize(False)
+
+    # now deserialize
+    deserialize = VectorLayer()
+    deserialize.deserialize(s)
+    self.assertEqual(deserialize.get_name(), b.get_name())
+    self.assertEqual(deserialize.get_datum(), b.get_datum())
+    self.assertEqual(deserialize.get_fields(), b.get_fields())
+    self.assertEqual(deserialize.get_projection_epsg(), b.get_projection_epsg())
+    self.assertEqual(deserialize.get_feature_count(), b.get_feature_count())
+    self.assertEqual(deserialize.get_driver_name(), 'GPKG')
+    self.assertEqual(deserialize.get_file_path(), b.get_file_path())
 
   def test_add_field_and_use_function_to_set_all_values_to_one(self):
     b = VectorLayer()

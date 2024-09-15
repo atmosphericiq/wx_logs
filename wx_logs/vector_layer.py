@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 import logging
 import numpy as np
@@ -20,9 +21,13 @@ PROJECTIONS = [4326, 3857]
 class VectorLayer:
 
   def __init__(self):
+    # basic file input/output stuff
     self._driver = None
+    self._driver_name = None
+    self._file_path = None
     self._datasource = None
     self._layer = None
+    self._fields = {}
 
     # projection stuff
     self._datum = None
@@ -210,17 +215,22 @@ class VectorLayer:
   def createmem(self, name):
     logger.info("creating an in-memory layer %s" % name)
     self._driver = ogr.GetDriverByName('MEMORY')
+    self._driver_name = 'MEMORY'
     self._datasource = self._driver.CreateDataSource(name)
 
   def createf(self, vector_file, overwrite=False):
     logger.info("creating file @ %s" % vector_file)
     self._driver = self.auto_determine_driver(vector_file)
+    self._driver_name = self._driver.GetName()
     if overwrite is True:
       if os.path.isfile(vector_file):
         os.remove(vector_file)
       if os.path.isdir(vector_file):
         shutil.rmtree(vector_file)
     self._datasource = driver.CreateDataSource(vector_file)
+
+  def get_driver_name(self):
+    return self._driver_name  
 
   def copy_blank_layer(self, old_vector_layer, new_name, projection_wkt=None):
     logger.info("Copying layer from %s" % old_vector_layer)
@@ -290,14 +300,31 @@ class VectorLayer:
 
     if field_type in (int, 'int', ogr.OFTInteger):
       fd = ogr.FieldDefn(field_name, ogr.OFTInteger)
+      fname = 'int'
     elif field_type in (float, 'float', ogr.OFTReal):
       fd = ogr.FieldDefn(field_name, ogr.OFTReal)
+      fname = 'float'
     elif field_type in (str, 'str', ogr.OFTString):
       fd = ogr.FieldDefn(field_name, ogr.OFTString)
+      fname = 'str'
     else:
       raise ValueError("Invalid field type, must be int, float or str. got %s" % field_type)
-
+    self._fields[field_name] = {'type': fname}
     self._layer.CreateField(fd)
+
+  def get_fields(self):
+    return self._fields
+
+  def get_file_path(self):
+    return self._file_path
+
+  # materialize - basically the same as saving to file
+  # but updates the object so if you do queries against 
+  # it, it goes against the layer on disk instead of
+  # the layer in memory (can be used to save memory)
+  def materialize(self, file_path, overwrite=True):
+    self.save_to_file(file_path, overwrite)
+    self.loadf(file_path)
 
   # this will save the layer out to file, which will
   # require opening the and then copying all the features
@@ -356,8 +383,10 @@ class VectorLayer:
 
   def loadf(self, vector_file, layer_id=0):
     logger.info("opening %s" % vector_file)
-    driver = self.auto_determine_driver(vector_file)
-    self._source = driver.Open(vector_file, 0)
+    self._driver = self.auto_determine_driver(vector_file)
+    self._driver_name = self._driver.GetName()
+    self._source = self._driver.Open(vector_file, 0)
+    self._file_path = vector_file
     num_layers = self._source.GetLayerCount()
     logger.info("found %s number of layers" % num_layers)
     if type(layer_id) == int:
@@ -432,3 +461,61 @@ class VectorLayer:
       return closest
     return None
 
+  # method which will serialize the entire object into something
+  # that can be deserialized and reloaded. Features is optional and
+  # will be included as geojsons
+  def serialize(self, include_features=False):
+    payload = {
+      'projection_wkt': self.get_projection_wkt(),
+      'name': self.get_name(),
+      'feature_count': self.get_feature_count(),
+      'extent': self.get_extent(),
+      'fields': self.get_fields(),
+      'storage': {
+        'driver': self.get_driver_name(),
+        'file_path': self.get_file_path()
+      }
+    }
+    if include_features is True:
+      features = []
+      for feature in self.get_layer():
+        geom = feature.GetGeometryRef()
+        geom_json = geom.ExportToJson()
+        feature_json = {
+          'geometry': geom_json,
+          'fields': {feature.GetFieldDefnRef(i).GetName(): feature.GetField(i) for \
+              i in range(feature.GetFieldCount())}
+        }
+        features.append(feature_json)
+      payload['features'] = features
+    return json.dumps(payload)
+  
+  # deserialize will load this into memory
+  def deserialize(self, payload):
+    payload = json.loads(payload)
+    projection_wkt = payload['projection_wkt']
+    layer_name = payload['name']
+    extent = payload['extent']
+    fields = payload['fields']
+
+    self.createmem(layer_name)
+    self.create_layer(layer_name, 'POINT', projection_wkt)
+    for f in fields:
+      self.add_field_defn(f, fields[f]['type'])
+    self.auto_set_projection()
+
+    # if we have features in here, then create all the features
+    if 'features' in payload:
+      for feature in payload['features']:
+        geom = ogr.CreateGeometryFromJson(feature['geometry'])
+        new_feature = self.blank_feature(geom)
+        for field in feature['fields']:
+          new_feature.SetField(field, feature['fields'][field])
+        self.add_feature(new_feature)
+
+    # if we dont have features then we're probably using a
+    # layer that is stored on disk
+    else:
+      self.loadf(payload['storage']['file_path'])
+
+    return self
