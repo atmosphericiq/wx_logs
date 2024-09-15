@@ -14,14 +14,24 @@ class RasterDistanceToVectorTestCase(unittest.TestCase):
     s = VectorLayer()
     s.load_url('https://public-images.engineeringdirector.com/dem/illinois.boundaries.gpkg')
 
-    r = RasterDistanceToVector(b)
-    new_band = r.calculate_distances(s)
-
+    # total map is 600 cols wide
+    self.assertEqual(b.width(), 600)
+  
+    r = RasterDistanceToVector(b, 4)
+    new_band = r.calculate_distances(s, 8.0)
     self.assertEqual(new_band.width(), b.width())
-    #self.assertEqual(new_band.sum(), 1000)
 
     # lat/lng for champaign, il
     lat = 40.1164
     lng = -88.2434
     new_band_value = new_band.get_value(lng, lat)
     self.assertEqual(new_band_value, 0)
+
+    # lat/lng for milwaukee
+    lat = 43.0389
+    lng = -87.9065
+    new_band_value = new_band.get_value(lng, lat)
+    self.assertEqual(new_band_value, 0.5551733374595642)
+
+    # now write to file
+    new_band.save_to_file('/tmp/distance.tif')

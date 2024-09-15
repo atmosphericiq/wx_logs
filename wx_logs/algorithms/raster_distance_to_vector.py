@@ -19,16 +19,20 @@ logger = logging.getLogger(__name__)
 # for each row, we're going to want to open up the 
 # vector file in read mode, filter it and then find
 # distances
-def calculate_row(row_data, vector_serialized):
+def calculate_row(row_data, vector_serialized, buffer_dist):
   vector = VectorLayer()
   vector.deserialize(vector_serialized)
   row_output = []
   for (center_pt, col) in row_data:
     center_geom = ogr.Geometry(ogr.wkbPoint)
-    center_geom.AddPoint(center_pt[0], center_pt[1])
+    center_geom.AddPoint_2D(center_pt[0], center_pt[1])
 
-
-    row_output.append(1)
+    # get the distance to the nearest vector object
+    (nearest, dist) = vector.find_nearest_feature(center_geom, buffer_dist)
+    if nearest is None:
+      row_output.append(np.nan)
+    else:
+      row_output.append(dist)
   return row_output
 
 class RasterDistanceToVector:
@@ -36,12 +40,15 @@ class RasterDistanceToVector:
   def __init__(self, raster_band_object, cpus=None):
     assert isinstance(raster_band_object, RasterBand)
     self.raster_band = raster_band_object
+    self.cpus = cpus
+    if cpus is None:
+      self.cpus = os.cpu_count()
 
-  def calculate_distances(self, vector_layer):
+  def calculate_distances(self, vector_layer, buffer_dist):
     # check if vector_layer is an instance of VectorLayer
     assert isinstance(vector_layer, VectorLayer), "vector_layer must be an instance of VectorLayer"
 
-    with Pool(processes=os.cpu_count()) as pool:
+    with Pool(processes=self.cpus) as pool:
       # for reach row in the grid, we will pass it to another function
       # that will calculate the distance to the nearest vector object
       # and return the distance value
@@ -53,7 +60,7 @@ class RasterDistanceToVector:
         # serialize the vector object so we can use it in workers
         serialized = vector_layer.serialize()
 
-        result_row = pool.apply_async(calculate_row, args=(row, serialized))
+        result_row = pool.apply_async(calculate_row, args=(row, serialized, buffer_dist))
         pool_of_rows.append(result_row)
         if len(pool_of_rows) % 100 == 0:
           logging.info(f"Putting {len(pool_of_rows)}/{total_rows} rows into queue")
@@ -67,8 +74,6 @@ class RasterDistanceToVector:
         except Exception as e:
           logger.error(f"Error calculating row: {e}")
           raise e
-
-        print(result)
         b2.add_row(count, result)
         count += 1
         if count % 100 == 0:

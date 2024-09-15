@@ -446,18 +446,27 @@ class VectorLayer:
     geom2.Transform(transform_func)
     return geom1.Distance(geom2)
 
-  def find_nearest_feature(self, x, y, bounding_shape=None):
-    sorted_records = self.find_nearest_features(x, y, bounding_shape)
+  # find nearest feature is useful in that it will return the
+  # nearest feature, the distance to that feature and the nearest
+  # point in that feature
+  def find_nearest_feature(self, xy, bounding_shape=None):
+    sorted_records = self.find_nearest_features(xy, bounding_shape)
     if len(sorted_records) > 0:
       closest = sorted_records[0][0]
-      return closest
-    return None
+      distance = sorted_records[0][1]
+      return (closest, distance)
+    return (None, None)
 
   # returns a list of all features and distances in the 
   # native projection 
-  def find_nearest_features(self, x, y, bounding_shape=None):
-    point = ogr.Geometry(ogr.wkbPoint)
-    point.AddPoint_2D(x, y)
+  def find_nearest_features(self, xy, bounding_shape=None):
+    if type(xy) == tuple and len(xy) == 2:
+      (x, y) = xy
+      point = ogr.Geometry(ogr.wkbPoint)
+      point.AddPoint_2D(x, y)
+    elif type(xy) == ogr.Geometry:
+      point = xy
+
     if type(bounding_shape) is float:
       radius = bounding_shape
       bounding_shape = point.Buffer(radius)

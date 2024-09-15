@@ -463,7 +463,7 @@ class RasterBand:
     
     # make sure row has the right width
     if len(row_data) != self._cols:
-      raise ValueError("Row data does not match width of raster")
+      raise ValueError(f"Row data does not match width of raster. Got {len(row_data)} expected {self._cols}")
 
     # make sure row number is in bounds
     if row_number < 0 or row_number >= self._rows:

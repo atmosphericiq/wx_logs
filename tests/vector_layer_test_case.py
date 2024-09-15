@@ -288,20 +288,72 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(layer.get_feature_count(), 3)
 
     # now find the nearest feature to 0,0
-    distances = layer.find_nearest_features(0, 0)
-    nearest = layer.find_nearest_feature(0, 0)
+    pt = (0, 0)
+    distances = layer.find_nearest_features(pt)
+    (nearest, dist) = layer.find_nearest_feature(pt)
 
     self.assertEqual(nearest.GetGeometryRef().GetX(), 0.0)
     self.assertEqual(nearest.GetGeometryRef().GetY(), -1)
+    self.assertEqual(dist, 1.0)
 
     # now find the distances from all features
-    distances = layer.find_nearest_features(0, 0)
+    distances = layer.find_nearest_features(pt)
     self.assertEqual(len(distances), 3)
     
     # first object should be distance 1 away
     self.assertEqual(distances[0][1], 1.0)
     self.assertEqual(distances[1][1], 2.0)
     self.assertEqual(distances[2][1], 3.0)
+
+  def test_nearest_feature_with_geom_instead_of_xy(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 4326)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, 3)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 1)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 2)
+
+    point0 = ogr.Geometry(ogr.wkbPoint)
+    point0.AddPoint_2D(0, 0)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    self.assertEqual(layer.get_feature_count(), 3)
+
+    # now find the nearest feature to 0,0
+    (nearest, dist) = layer.find_nearest_feature(point0)
+    self.assertEqual(nearest.GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(nearest.GetGeometryRef().GetY(), 1.0)
+
+  def test_nearest_features_with_spatial_filter_saying_too_far_away(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 4326)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, 0)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 1)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 2)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    self.assertEqual(layer.get_feature_count(), 3)
+
+    # now find the nearest feature to 0,0
+    pt = (10, 10)
+    distances = layer.find_nearest_features(pt, 1.0)
+    self.assertEqual(len(distances), 0)
+
+    # nearest should return None, NOne
+    (nearest, dist) = layer.find_nearest_feature(pt)
+    self.assertEqual(nearest, None)
+    self.assertEqual(dist, None)
 
   def test_nearest_feature_with_spherical_projection(self):
     layer = VectorLayer()
@@ -320,7 +372,7 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(layer.get_feature_count(), 3)
 
     # now find the nearest feature to 0,0
-    nearest = layer.find_nearest_feature(41.8781, -87.6298)
+    (nearest, dist) = layer.find_nearest_feature((41.8781, -87.6298))
     self.assertEqual(nearest.GetGeometryRef().GetX(), 0.0)
     self.assertEqual(nearest.GetGeometryRef().GetY(), 0.0)
 
