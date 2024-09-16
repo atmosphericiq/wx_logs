@@ -43,11 +43,17 @@ class RasterDistanceToVector:
     self.cpus = cpus
     if cpus is None:
       self.cpus = os.cpu_count()
+    logger.info(f"using {self.cpus} cpus")
 
   def calculate_distances(self, vector_layer, buffer_dist):
     # check if vector_layer is an instance of VectorLayer
     assert isinstance(vector_layer, VectorLayer), "vector_layer must be an instance of VectorLayer"
 
+    # prepare the vector layer in memory so it goes faster
+    memoized = vector_layer.memoize()
+    serialized = memoized.serialize(True)
+
+    logger.info("Calculating distances to vector objects")
     with Pool(processes=self.cpus) as pool:
       # for reach row in the grid, we will pass it to another function
       # that will calculate the distance to the nearest vector object
@@ -55,17 +61,15 @@ class RasterDistanceToVector:
       total_rows = self.raster_band.height()
       logger.info(f"Calculating distances for {total_rows} rows")
       pool_of_rows = []
+
       for row in self.raster_band.rows(True):
-
-        # serialize the vector object so we can use it in workers
-        serialized = vector_layer.serialize()
-
-        result_row = pool.apply_async(calculate_row, args=(row, serialized, buffer_dist))
+        result_row = pool.apply_async(calculate_row, args=(row, serialized, buffer_dist, ))
         pool_of_rows.append(result_row)
         if len(pool_of_rows) % 100 == 0:
-          logging.info(f"Putting {len(pool_of_rows)}/{total_rows} rows into queue")
+          logger.info(f"Putting {len(pool_of_rows)}/{total_rows} rows into queue")
 
       # create a new band and we're going to add one row at a time into this band
+      logger.info(f"Creating new raster band, to populate")
       b2 = self.raster_band.clone_with_no_data()
       count = 0
       for row in pool_of_rows:

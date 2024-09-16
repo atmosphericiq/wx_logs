@@ -35,3 +35,33 @@ class RasterDistanceToVectorTestCase(unittest.TestCase):
 
     # now write to file
     new_band.save_to_file('/tmp/distance.tif')
+
+  def a_test_distance_to_vector_in_memory(self):
+    b = RasterBand()
+    b.load_url('s3://public-images.engineeringdirector.com/dem/snowfall.2017.lowres.tif')
+    b.load_band(1)
+
+    stemp = VectorLayer()
+    stemp.load_url('https://public-images.engineeringdirector.com/dem/illinois.boundaries.gpkg')
+
+    s = stemp.memoize()
+
+    # total map is 600 cols wide
+    self.assertEqual(s.width(), 600)
+    self.assertEqual(s.get_feature_count(), 102)
+
+    r = RasterDistanceToVector(b, 2)
+    new_band = r.calculate_distances(s, 8.1)
+    self.assertEqual(new_band.width(), b.width())
+
+    # lat/lng for champaign, il
+    lat = 40.1164
+    lng = -88.2434
+    new_band_value = new_band.get_value(lng, lat)
+    self.assertEqual(new_band_value, 0)
+
+    # lat/lng for milwaukee
+    lat = 43.0389
+    lng = -87.9065
+    new_band_value = new_band.get_value(lng, lat)
+    self.assertEqual(new_band_value, 0.5551733374595642)

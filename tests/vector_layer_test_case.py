@@ -426,7 +426,7 @@ class VectorLayerTestCase(unittest.TestCase):
     # test the get_fields method returns
     fields = b.get_fields()
     something_field = fields['something']
-    self.assertEqual(something_field['type'], 'str')
+    self.assertEqual(something_field['type'], 'String')
 
     # now serialize the layer
     serialized = b.serialize(True)
@@ -470,6 +470,52 @@ class VectorLayerTestCase(unittest.TestCase):
     # delete the file
     os.remove('/tmp/test.materialized.gpkg')
 
+  def test_memoize_function_with_moves_hard_file_into_memory(self):
+    vector_url = 'https://public-images.engineeringdirector.com/dem/Oregon_State_Boundary_6507293181691922778.zip'
+    s = VectorLayer()
+    s.load_url(vector_url)
+    shape_extents = s.get_extent()
+    self.assertEqual(s.get_feature_count(), 1703)
+    self.assertEqual(len(s.get_fields()), 4)
+
+    for feature in s.get_layer():
+      self.assertEqual(feature.GetField('SUBJ_STATE'), 'OREGON')
+
+    # memoize, move this to a new layer in memory
+    s2 = s.memoize()
+    self.assertEqual(s2.get_feature_count(), 1703)
+    self.assertEqual(s2.get_driver_name(), 'MEMORY')
+    self.assertEqual(len(s2.get_fields()), 4)
+    for feature in s2.get_layer():
+      self.assertEqual(feature.GetField('SUBJ_STATE'), 'OREGON')
+
+    # make sure fields are teh same
+    self.assertEqual(s.get_fields(), s2.get_fields())
+
+    # okay now try to memoize the memoize and make sure it throws
+    # an exception that you can't do that
+    with self.assertRaises(ValueError):
+      s2.memoize()
+    
+    # now try to serialize a memory layer
+    serialized = s2.serialize(True)
+    serialized_json = json.loads(serialized)
+    self.assertEqual(serialized_json['name'], 'Oregon_State_Boundary')
+    self.assertEqual(len(serialized_json['features']), 1703)
+
+    s3 = VectorLayer()
+    s3.deserialize(serialized)
+    self.assertEqual(s3.get_feature_count(), 1703)
+    self.assertEqual(s3.get_driver_name(), 'MEMORY')
+    self.assertEqual(len(s3.get_fields()), 4)
+
+    # compare fields
+    self.assertEqual(s.get_fields(), s3.get_fields())
+
+    # look at one of the features
+    for feature in s3.get_layer():
+      self.assertEqual(feature.GetField('SUBJ_STATE'), 'OREGON')
+  
   def test_add_field_and_use_function_to_set_all_values_to_one(self):
     b = VectorLayer()
     b.createmem('test')

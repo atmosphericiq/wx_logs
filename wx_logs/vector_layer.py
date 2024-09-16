@@ -298,15 +298,15 @@ class VectorLayer:
       logger.info("field name cannot be empty")
       return
 
-    if field_type in (int, 'int', ogr.OFTInteger):
+    if field_type in (int, 'int', 'Integer', ogr.OFTInteger):
       fd = ogr.FieldDefn(field_name, ogr.OFTInteger)
-      fname = 'int'
-    elif field_type in (float, 'float', ogr.OFTReal):
+      fname = 'Integer'
+    elif field_type in (float, 'float', 'Real', ogr.OFTReal):
       fd = ogr.FieldDefn(field_name, ogr.OFTReal)
-      fname = 'float'
-    elif field_type in (str, 'str', ogr.OFTString):
+      fname = 'Real'
+    elif field_type in (str, 'str', 'String', ogr.OFTString):
       fd = ogr.FieldDefn(field_name, ogr.OFTString)
-      fname = 'str'
+      fname = 'String'
     else:
       raise ValueError("Invalid field type, must be int, float or str. got %s" % field_type)
     self._fields[field_name] = {'type': fname}
@@ -317,6 +317,21 @@ class VectorLayer:
 
   def get_file_path(self):
     return self._file_path
+
+  # memoize - take a layer that is saved on disk
+  # and convert it to an in memory layer for faster
+  # processing
+  def memoize(self):
+    if self._driver_name == 'MEMORY':
+      raise ValueError("Layer is already in memory")
+    mem_layer = VectorLayer()
+    mem_layer.createmem(self.get_name())
+    mem_layer.copy_blank_layer(self, self.get_name())
+    mem_layer.auto_set_projection()
+    mem_layer.auto_set_fields()
+    for feature in self.get_layer():
+      mem_layer.add_feature(feature.Clone())
+    return mem_layer
 
   # materialize - basically the same as saving to file
   # but updates the object so if you do queries against 
@@ -399,8 +414,19 @@ class VectorLayer:
         if candidate_layer_name == layer_id:
           logger.info("found layer matching = %s" % idx)
           self._layer = self._source.GetLayer(idx)
+    self.auto_set_fields()
     assert self._layer is not None, "cannot find layer id = %s" % layer_id
     self.auto_set_projection()
+
+  # this will automatically look at the fields on the layer
+  # and set the fields on this object properly
+  def auto_set_fields(self):
+    layer_defn = self._layer.GetLayerDefn()
+    for i in range(layer_defn.GetFieldCount()):
+      field_defn = layer_defn.GetFieldDefn(i)
+      field_name = field_defn.GetName()
+      field_type = field_defn.GetTypeName()
+      self._fields[field_name] = {'type': field_type}
 
   # this will just set the variables on this object based
   # on what the projection is in the layer
@@ -491,6 +517,9 @@ class VectorLayer:
         'file_path': self.get_file_path()
       }
     }
+
+    is_memory_layer = self.get_driver_name() == 'MEMORY'
+
     if include_features is True:
       features = []
       for feature in self.get_layer():
@@ -515,8 +544,12 @@ class VectorLayer:
 
     self.createmem(layer_name)
     self.create_layer(layer_name, 'POINT', projection_wkt)
-    for f in fields:
-      self.add_field_defn(f, fields[f]['type'])
+    logger.info("loading layer %s" % layer_name)
+    field_list = []
+    for (field_name, field) in fields.items():
+      self.add_field_defn(field_name, field['type'])
+      field_list.append(field_name)
+
     self.auto_set_projection()
 
     # if we have features in here, then create all the features
@@ -524,8 +557,9 @@ class VectorLayer:
       for feature in payload['features']:
         geom = ogr.CreateGeometryFromJson(feature['geometry'])
         new_feature = self.blank_feature(geom)
-        for field in feature['fields']:
-          new_feature.SetField(field, feature['fields'][field])
+        for field_name in field_list:
+          field_value = feature['fields'].get(field_name)
+          new_feature.SetField(field_name, field_value)
         self.add_feature(new_feature)
 
     # if we dont have features then we're probably using a
