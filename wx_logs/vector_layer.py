@@ -379,8 +379,16 @@ class VectorLayer:
     mem_layer.copy_blank_layer(self, self.get_name())
     mem_layer.auto_set_projection()
     mem_layer.auto_set_fields()
+
+    total_features = self.get_feature_count()
+    count = 0
     for feature in self.get_layer():
       mem_layer.add_feature(feature.Clone())
+      count += 1
+      if count % 1000 == 0:
+        logger.info(f"memoized {count}/{total_features} features")
+
+    logger.info("memoized layer completed")
     return mem_layer
 
   # materialize - basically the same as saving to file
