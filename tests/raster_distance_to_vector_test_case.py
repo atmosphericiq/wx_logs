@@ -44,8 +44,8 @@ class RasterDistanceToVectorTestCase(unittest.TestCase):
     new_band.save_to_file('/tmp/distance.tif')
 
   def test_distance_to_vector_in_memory(self):
-    pr = cProfile.Profile()
-    pr.enable()
+    #pr = cProfile.Profile()
+    #pr.enable()
 
     b = RasterBand()
     b.load_url('s3://public-images.engineeringdirector.com/dem/snowfall.2017.lowres.tif')
@@ -54,6 +54,7 @@ class RasterDistanceToVectorTestCase(unittest.TestCase):
     s = VectorLayer()
     s.load_url('https://public-images.engineeringdirector.com/dem/illinois.boundaries.gpkg')
 
+    # put it in memory for SPEED
     memoized = s.memoize()
 
     r = RasterDistanceToVector(b, 2)
@@ -73,9 +74,9 @@ class RasterDistanceToVectorTestCase(unittest.TestCase):
     self.assertEqual(new_band_value, 0.5551733374595642)
 
     # Disable and print the profiling stats
-    pr.disable()
-    s = io.StringIO()
-    sortby = 'cumulative'
-    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-    ps.print_stats()
-    print(s.getvalue())  # Outputs profiling results to console
+    #pr.disable()
+    #s = io.StringIO()
+    #sortby = 'cumulative'
+    #ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    #ps.print_stats()
+    #print(s.getvalue())  # Outputs profiling results to console

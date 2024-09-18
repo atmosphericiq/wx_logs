@@ -8,7 +8,7 @@ import logging
 import numpy as np
 from shapely.strtree import STRtree
 from shapely.geometry import Point
-from shapely import wkt
+from shapely import wkt, wkb
 from pyproj import CRS
 from osgeo import ogr, osr
 from .file_storage import FileStorage
@@ -102,7 +102,12 @@ class VectorLayer:
       self._features[self._max_fid] = ogr_feature
 
       # also set any geometries 
-      shapely_geom = wkt.loads(ogr_feature.GetGeometryRef().ExportToWkt())
+      ogr_geom = ogr_feature.GetGeometryRef()
+      geom_wkb = ogr_geom.ExportToWkb()
+      if isinstance(geom_wkb, bytearray):
+        geom_wkb = bytes(geom_wkb)
+      assert type(geom_wkb) == bytes, "Invalid geometry type. got %s" % type(geom_wkb)
+      shapely_geom = wkb.loads(geom_wkb)
       self._geometries[self._max_fid] = shapely_geom
 
       # also update the extents
@@ -533,26 +538,61 @@ class VectorLayer:
   # for in memory layers, we maintain the spatial index in memory
   # so we can do fast queries
   def build_spatial_index(self):
+    logger.info("building spatial index")
     if self.get_driver_name() == 'MEMORY' and len(self._geometries) > 0:
       self._spatial_index = STRtree(list(self._geometries.values()))
     return
+
+  # this takes a list of points and returns a batch of nearest
+  # features with distances
+  def find_nearest_feature_batch(self, xys, max_distance=None):
+    if self.get_driver_name() == 'MEMORY':
+      if self._spatial_index is None:
+        self.build_spatial_index()
+
+    # xys should be a list of x,y points, no geom here
+    points = [Point(xy) for xy in xys]
+
+    # construct the query
+    params = {'return_distance': True,
+      'exclusive': True}
+    if max_distance is not None:
+      params['max_distance'] = max_distance
+    (idxs, dists) = self._spatial_index.query_nearest(points, **params)
+    idxs = idxs.tolist()
+    input_indexes = idxs[0] # input pts with a match
+    dists = dists.tolist()
+
+    hits = [(None, None) for i in range(len(xys))]
+    for i in range(len(input_indexes)):
+      input_index = input_indexes[i]
+      dist = dists[i]
+      tree_index = idxs[1][i]
+      feature = self._features[tree_index]
+      hits[input_index] = (feature, dist)
+
+    return hits
 
   # find nearest feature is useful in that it will return the
   # nearest feature, the distance to that feature and the nearest
   # point in that feature
   # note that find nearest feature uses the query_nearest method
   # with the point which only returns 1 thing
+  # xy can also be a list of points
   def find_nearest_feature(self, xy, max_distance=None):
     if self.get_driver_name() == 'MEMORY':
       if self._spatial_index is None:
         self.build_spatial_index()
+
       if type(xy) == tuple and len(xy) == 2:
         point = Point(xy)
       elif type(xy) == ogr.Geometry:
         point = Point(xy.GetX(), xy.GetY())
+
       params = {'return_distance': True}
       if max_distance is not None:
         params['max_distance'] = max_distance
+
       (idxs, dists) = self._spatial_index.query_nearest([point], **params)
       dists = dists.tolist()
       if len(dists) > 0:
@@ -564,7 +604,7 @@ class VectorLayer:
       else:
         return (None, None)
     else:
-      sorted_records = self.find_nearest_features(xy, max_distance)
+      sorted_records = self.find_nearest_features(xy, 1, max_distance)
       if len(sorted_records) > 0:
         closest = sorted_records[0][0]
         distance = sorted_records[0][1]
@@ -652,7 +692,6 @@ class VectorLayer:
         'file_path': self.get_file_path()
       }
     }
-
     is_memory_layer = self.get_driver_name() == 'MEMORY'
 
     if include_features is True:

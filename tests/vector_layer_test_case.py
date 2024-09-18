@@ -298,6 +298,136 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(nearest.GetGeometryRef().GetY(), -1.0)
     self.assertEqual(dist, 1.0)
 
+  def test_find_nearest_features_batch_call(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 3857)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, -1)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 2)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 3)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    self.assertEqual(layer.get_feature_count(), 3)
+
+    # now find the 5 nearest features of the two points
+    pt0 = (0, 0)
+    pt1 = (10, 10)
+    pts = [pt0, pt1]
+    distances = layer.find_nearest_feature_batch(pts, 5)
+
+    # then what i should get back is a list
+    # that is the same size that went in
+    self.assertEqual(len(pts), len(distances))
+
+    # then each point should have a (feature, distance) pair
+    self.assertEqual(len(distances[0]), 2)
+    self.assertEqual(len(distances[1]), 2)
+    pt0_match = distances[0][0]
+    pt0_dist = distances[0][1]
+    pt1_match = distances[1][0]
+    pt1_dist = distances[1][1]
+      
+    # the first point should be the first point
+    self.assertEqual(pt0_match.GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(pt0_match.GetGeometryRef().GetY(), -1.0)
+    self.assertEqual(pt0_dist, 1.0)
+
+    # the second point should be the second point
+    self.assertEqual(pt1_match, None)
+    self.assertEqual(pt1_dist, None)
+
+    # now do again but with no range limit
+    distances = layer.find_nearest_feature_batch(pts)
+    self.assertEqual(len(distances[0]), 2)
+    self.assertEqual(len(distances[1]), 2)
+
+    p0_match = distances[0][0]
+    p0_dist = distances[0][1]
+    p1_match = distances[1][0]
+    p1_dist = distances[1][1]
+
+    # the first point should be the first point
+    self.assertEqual(p0_match.GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(p0_match.GetGeometryRef().GetY(), -1.0)
+
+    # the second point should be the second point
+    self.assertEqual(p1_match.GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(p1_match.GetGeometryRef().GetY(), 3.0)
+
+  def test_batch_join_more_points(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 3857)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, -1)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 2)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 3)
+    point4 = ogr.Geometry(ogr.wkbPoint)
+    point4.AddPoint_2D(0, 4)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    self.assertEqual(layer.get_feature_count(), 3)
+
+    pt0 = (0, 0)
+    pt1 = (10, 10)
+    pt2 = (0, 0)
+    pts = [pt0, pt1, pt2]
+    distances = layer.find_nearest_feature_batch(pts, 5)
+
+    # then what i should get back is a list
+    # that is the same size that went in
+    self.assertEqual(len(pts), len(distances))
+
+    # then each point should have a (feature, distance) pair
+    self.assertEqual(len(distances[0]), 2)
+    self.assertEqual(len(distances[1]), 2)
+    self.assertEqual(len(distances[2]), 2)
+
+    self.assertEqual(distances[0][0].GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(distances[0][0].GetGeometryRef().GetY(), -1.0)
+
+    self.assertEqual(distances[2][0].GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(distances[2][0].GetGeometryRef().GetY(), -1.0)
+
+
+  def test_batch_join_but_make_100_random_points(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 3857)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, -1)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 2)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 3)
+    point4 = ogr.Geometry(ogr.wkbPoint)
+    point4.AddPoint_2D(0, 4)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    layer.add_feature(layer.blank_feature(point4))
+    self.assertEqual(layer.get_feature_count(), 4)
+
+    # now make 100 random points
+    pts = []
+    for i in range(100):
+      pt = (0, i)
+      pts.append(pt)
+
+    # now do search on those 100 pts
+    distances = layer.find_nearest_feature_batch(pts)
+    self.assertEqual(len(distances), 100)
+
   def test_find_nearest_features(self):
     layer = VectorLayer()
     layer.createmem('test')

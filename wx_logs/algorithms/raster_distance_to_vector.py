@@ -16,6 +16,8 @@ from multiprocessing import Pool
 
 logger = logging.getLogger(__name__)
 
+CHUNK_SIZE = 250
+
 # for each row, we're going to want to open up the 
 # vector file in read mode, filter it and then find
 # distances
@@ -23,16 +25,26 @@ def calculate_row(row_data, vector_serialized, buffer_dist):
   vector = VectorLayer()
   vector.deserialize(vector_serialized)
   row_output = []
-  for (center_pt, col) in row_data:
-    center_geom = ogr.Geometry(ogr.wkbPoint)
-    center_geom.AddPoint_2D(center_pt[0], center_pt[1])
 
-    # get the distance to the nearest vector object
-    (nearest, dist) = vector.find_nearest_feature(center_geom, buffer_dist)
-    if nearest is None:
-      row_output.append(np.nan)
-    else:
-      row_output.append(dist)
+  # construct a list of points
+  xys = [(center_pt[0], center_pt[1]) for (center_pt, col) in row_data]
+
+  # batch into chunks of 250
+  xys_chunked = [xys[i:i + CHUNK_SIZE] for i in range(0, len(xys), CHUNK_SIZE)]
+  logger.info("chunking row calc to %d chunks" % len(xys_chunked))
+
+  # get the distance to the nearest vector object
+  for chunk in xys_chunked:
+    hits = vector.find_nearest_feature_batch(chunk, 5)
+    for hit in hits:
+      row_output.append(hit[1])
+
+  # hits is a list of tuples of feature,dist
+  #row_output = [hit[1] for hit in hits]
+
+  # turn any nones into nans
+  row_output = [np.nan if x is None else x for x in row_output]
+
   return row_output
 
 class RasterDistanceToVector:
