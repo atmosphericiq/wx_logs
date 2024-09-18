@@ -220,7 +220,7 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertAlmostEqual(feature.GetGeometryRef().GetX(), -9754904.71, places=2)
     self.assertAlmostEqual(feature.GetGeometryRef().GetY(), 5142736.87, places=2)
     self.assertEqual(feature.GetField('name'), 'pokonos')
-    self.assertEqual(feature.GetFID(), 1)
+    self.assertEqual(feature.GetFID(), 0)
 
   def test_feature_gets_added_properly(self):
     layer = VectorLayer()
@@ -237,7 +237,7 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(geom1.GetY(), added_feature.GetGeometryRef().GetY())
 
     # now get the first feature from the layer
-    first_feature = layer.get_feature()
+    first_feature = layer.get_feature(0)
     self.assertEqual(first_feature.GetGeometryRef().GetX(), geom1.GetX())
     self.assertEqual(first_feature.GetGeometryRef().GetY(), geom1.GetY())
 
@@ -271,6 +271,33 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(ul, (-1, 2))
     self.assertEqual(lr, (2, -1))
 
+  def test_find_nearest_features_dont_run_forever(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 3857)
+    point1 = ogr.Geometry(ogr.wkbPoint)
+    point1.AddPoint_2D(0, -1)
+    point2 = ogr.Geometry(ogr.wkbPoint)
+    point2.AddPoint_2D(0, 2)
+    point3 = ogr.Geometry(ogr.wkbPoint)
+    point3.AddPoint_2D(0, 3)
+
+    layer.add_feature(layer.blank_feature(point1))
+    layer.add_feature(layer.blank_feature(point2))
+    layer.add_feature(layer.blank_feature(point3))
+    self.assertEqual(layer.get_feature_count(), 3)
+
+    # now find the 5 nearest features (but we only have 3)
+    pt = (0, 0)
+    distances = layer.find_nearest_features(pt, 5)
+    self.assertEqual(len(distances), 3)
+
+    # now find the one nearest feature and make sure its right
+    (nearest, dist) = layer.find_nearest_feature(pt)
+    self.assertEqual(nearest.GetGeometryRef().GetX(), 0.0)
+    self.assertEqual(nearest.GetGeometryRef().GetY(), -1.0)
+    self.assertEqual(dist, 1.0)
+
   def test_find_nearest_features(self):
     layer = VectorLayer()
     layer.createmem('test')
@@ -297,7 +324,7 @@ class VectorLayerTestCase(unittest.TestCase):
     self.assertEqual(dist, 1.0)
 
     # now find the distances from all features
-    distances = layer.find_nearest_features(pt)
+    distances = layer.find_nearest_features(pt, 3)
     self.assertEqual(len(distances), 3)
     
     # first object should be distance 1 away
@@ -347,11 +374,11 @@ class VectorLayerTestCase(unittest.TestCase):
 
     # now find the nearest feature to 0,0
     pt = (10, 10)
-    distances = layer.find_nearest_features(pt, 1.0)
+    distances = layer.find_nearest_features(pt, 2, 1.0)
     self.assertEqual(len(distances), 0)
 
-    # nearest should return None, NOne
-    (nearest, dist) = layer.find_nearest_feature(pt)
+    # nearest should return None, None
+    (nearest, dist) = layer.find_nearest_feature(pt, 1.0)
     self.assertEqual(nearest, None)
     self.assertEqual(dist, None)
 
@@ -535,6 +562,21 @@ class VectorLayerTestCase(unittest.TestCase):
     for f in b.get_layer():
       self.assertEqual(f.GetField('v'), 1)
 
+  def test_add_memory_layer_make_sure_features_in_features(self):
+    b = VectorLayer()
+    b.createmem('test')
+    b.create_layer_epsg('test', 'POINT', 4326)
+    geom1 = ogr.Geometry(ogr.wkbPoint)
+    geom1.AddPoint_2D(1, 1)
+    feature1 = b.blank_feature(geom1)
+    b.add_feature(feature1)
+    self.assertEqual(len(b._features), 1)
+    self.assertEqual(b.get_feature_count(), 1)
+    self.assertEqual(len(b.get_layer()), 1)
+    self.assertEqual(len(b.get_extent()), 4)
+    self.assertEqual(b.get_driver_name(), 'MEMORY')
+    self.assertEqual(len(b._geometries), 1)
+  
   def test_shapefile_that_is_simple_but_gdb(self):
     vector_url = 'https://public-images.engineeringdirector.com/dem/Oregon_State_Boundary_6507293181691922778.zip'
     s = VectorLayer()

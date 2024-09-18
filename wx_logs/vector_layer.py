@@ -1,8 +1,14 @@
+# VectorLayer
+# main vector layer code
+
 import os
 import json
 import shutil
 import logging
 import numpy as np
+from shapely.strtree import STRtree
+from shapely.geometry import Point
+from shapely import wkt
 from pyproj import CRS
 from osgeo import ogr, osr
 from .file_storage import FileStorage
@@ -35,18 +41,34 @@ class VectorLayer:
     self._proj4_string = None
     self._projection_wkt = None
 
+    # in memory stuff, note that they 
+    # will be keyed by ID
+    self._spatial_index = None
+    self._features = {}
+    self._geometries = {} # shapely geoms
+    self._extent = {'min_x': None, 'max_x': None, 
+      'min_y': None, 'max_y': None}
+
+    # FID is the integer that tracks feature IDs
     self._max_fid = 0
 
   def get_layer(self):
-    return self._layer
+    if self.get_driver_name() == 'MEMORY':
+      return self._features.values()
+    else:
+      return self._layer
 
   def get_name(self):
     return self._layer.GetName()
 
   def set_spatial_filter(self, geom):
+    if self.get_driver_name() == 'MEMORY':
+      raise ValueError("Cannot set spatial filter on in-memory layer")
     self._layer.SetSpatialFilter(geom)
 
   def reset_spatial_filter(self):
+    if self.get_driver_name() == 'MEMORY':
+      raise ValueError("Cannot reset spatial filter on in-memory layer")
     self._layer.SetSpatialFilter(None)
 
   def load_url(self, file_url, md5_hash=None):
@@ -63,27 +85,52 @@ class VectorLayer:
     return self.loadf(fs.get_full_path_to_file())
 
   def get_feature_count(self):
-    feature_count = self._layer.GetFeatureCount()
-    self._layer.ResetReading()
-    return feature_count
+    if self.get_driver_name() == 'MEMORY':
+      return len(self._features)
+    else:
+      feature_count = self._layer.GetFeatureCount()
+      self._layer.ResetReading()
+      return feature_count
 
   # add a feature to the layer, note that we have to do
   # some checking on FIDs
   def add_feature(self, ogr_feature):
-    if ogr_feature.GetFID() > self._max_fid:
-      self._max_fid = ogr_feature.GetFID()
-    else:
-      self._max_fid += 1
-      ogr_feature.SetFID(self._max_fid)
+    ogr_feature.SetFID(self._max_fid)
+  
+    # if we're using MEMORY then put into local array
+    if self.get_driver_name() == 'MEMORY':
+      self._features[self._max_fid] = ogr_feature
 
-    self._layer.CreateFeature(ogr_feature)
+      # also set any geometries 
+      shapely_geom = wkt.loads(ogr_feature.GetGeometryRef().ExportToWkt())
+      self._geometries[self._max_fid] = shapely_geom
+
+      # also update the extents
+      geom = ogr_feature.GetGeometryRef()
+      min_x, max_x, min_y, max_y = geom.GetEnvelope()
+      if self._extent['min_x'] is None or min_x < self._extent['min_x']:
+        self._extent['min_x'] = min_x
+      if self._extent['max_x'] is None or max_x > self._extent['max_x']:
+        self._extent['max_x'] = max_x
+      if self._extent['min_y'] is None or min_y < self._extent['min_y']:
+        self._extent['min_y'] = min_y
+      if self._extent['max_y'] is None or max_y > self._extent['max_y']:
+        self._extent['max_y'] = max_y
+    else:
+      self._layer.CreateFeature(ogr_feature)
+
+    self._max_fid += 1
+
     return ogr_feature
 
   def get_extent(self):
-    extent = self._layer.GetExtent()
-    min_x, max_x, min_y, max_y = extent
-    payload = {'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y}
-    return payload
+    if self.get_driver_name() == 'MEMORY':
+      return self._extent
+    else: # use the layer extent  
+      extent = self._layer.GetExtent()
+      min_x, max_x, min_y, max_y = extent
+      payload = {'min_x': min_x, 'max_x': max_x, 'min_y': min_y, 'max_y': max_y}
+      return payload
 
   # copies an old feature, creates a new one but
   # with the proper layer defn
@@ -165,7 +212,10 @@ class VectorLayer:
     return self._reproject(crs.to_wkt())
   
   # return feature off the stack
-  def get_feature(self):
+  def get_feature(self, feature_id=None):
+    if self.get_driver_name() == 'MEMORY':
+      assert feature_id is not None, "Feature ID is required"
+      return self._features[feature_id]
     return self._layer.GetNextFeature()
 
   def _reproject(self, projection_wkt):
@@ -182,7 +232,7 @@ class VectorLayer:
     transform = osr.CoordinateTransformation(source_srs, target_srs)
 
     # now reproject the individual features
-    for feature in self._layer:
+    for feature in self.get_layer():
       geom = feature.GetGeometryRef()
       geom.Transform(transform)
       fid = feature.GetFID()
@@ -246,14 +296,14 @@ class VectorLayer:
     geom_type = old_vector_layer._layer.GetGeomType()
 
     # copy the layer itself and the spatial reference
-    old_layer_def = old_vector_layer.get_layer().GetLayerDefn()
+    old_layer_def = old_vector_layer._layer.GetLayerDefn()
     self._layer = self._datasource.CreateLayer(new_name, srs=srs, geom_type=geom_type)
 
     # copy the field definitions
     field_defs = [old_layer_def.GetFieldDefn(i) for i in range(old_layer_def.GetFieldCount())]
     for field_def in field_defs:
       self._layer.CreateField(field_def)
-  
+
     logger.info("Layer copy completed")
 
   def create_layer_epsg(self, layer_name, shape_type='POINT', proj=4326):
@@ -298,7 +348,7 @@ class VectorLayer:
       logger.info("field name cannot be empty")
       return
 
-    if field_type in (int, 'int', 'Integer', ogr.OFTInteger):
+    if field_type in (int, 'int', 'Integer', 'Integer64', ogr.OFTInteger):
       fd = ogr.FieldDefn(field_name, ogr.OFTInteger)
       fname = 'Integer'
     elif field_type in (float, 'float', 'Real', ogr.OFTReal):
@@ -364,7 +414,7 @@ class VectorLayer:
     save_count = 0
     total_features = self.get_feature_count()
     logger.info("saving %s features to file" % total_features)
-    for feature in self._layer:
+    for feature in self.get_layer():
       geom = feature.GetGeometryRef()
       new_feature = ogr.Feature(out_layer.GetLayerDefn())
       new_feature.SetGeometry(geom)
@@ -472,35 +522,112 @@ class VectorLayer:
     geom2.Transform(transform_func)
     return geom1.Distance(geom2)
 
+  # for in memory layers, we maintain the spatial index in memory
+  # so we can do fast queries
+  def build_spatial_index(self):
+    if self.get_driver_name() == 'MEMORY' and len(self._geometries) > 0:
+      self._spatial_index = STRtree(list(self._geometries.values()))
+    return
+
   # find nearest feature is useful in that it will return the
   # nearest feature, the distance to that feature and the nearest
   # point in that feature
-  def find_nearest_feature(self, xy, bounding_shape=None):
-    sorted_records = self.find_nearest_features(xy, bounding_shape)
-    if len(sorted_records) > 0:
-      closest = sorted_records[0][0]
-      distance = sorted_records[0][1]
-      return (closest, distance)
-    return (None, None)
+  # note that find nearest feature uses the query_nearest method
+  # with the point which only returns 1 thing
+  def find_nearest_feature(self, xy, max_distance=None):
+    if self.get_driver_name() == 'MEMORY':
+      if self._spatial_index is None:
+        self.build_spatial_index()
+      if type(xy) == tuple and len(xy) == 2:
+        point = Point(xy)
+      elif type(xy) == ogr.Geometry:
+        point = Point(xy.GetX(), xy.GetY())
+      params = {'return_distance': True}
+      if max_distance is not None:
+        params['max_distance'] = max_distance
+      (idxs, dists) = self._spatial_index.query_nearest([point], **params)
+      dists = dists.tolist()
+      if len(dists) > 0:
+        dist = dists[0]
+        tree_index = idxs.tolist()[1][0]
+        feature = self._features[tree_index]
+        paired = (feature, dist)
+        return paired
+      else:
+        return (None, None)
+    else:
+      sorted_records = self.find_nearest_features(xy, max_distance)
+      if len(sorted_records) > 0:
+        closest = sorted_records[0][0]
+        distance = sorted_records[0][1]
+        return (closest, distance)
+      return (None, None)
 
   # returns a list of all features and distances in the 
   # native projection 
-  def find_nearest_features(self, xy, bounding_shape=None):
-    if type(xy) == tuple and len(xy) == 2:
-      (x, y) = xy
-      point = ogr.Geometry(ogr.wkbPoint)
-      point.AddPoint_2D(x, y)
-    elif type(xy) == ogr.Geometry:
-      point = xy
+  # xy = (x, y) or ogr.Geometry
+  # n = number of nearest features to return
+  # max_distance = max distance to search for
+  def find_nearest_features(self, xy, n=1, max_distance=None):
+    if self.get_driver_name() == 'MEMORY':
+      if self._spatial_index is None:
+        self.build_spatial_index()
+      if type(xy) == tuple and len(xy) == 2:
+        point = Point(xy)
+      elif type(xy) == ogr.Geometry:
+        point = Point(xy.GetX(), xy.GetY())
 
-    if type(bounding_shape) is float:
-      radius = bounding_shape
-      bounding_shape = point.Buffer(radius)
-    if bounding_shape is not None:
-      self._layer.SetSpatialFilter(bounding_shape)
-    dists = [(f, point.Distance(f.GetGeometryRef())) for f in self._layer]
-    sorted_records = sorted(dists, key=lambda i: i[1])
-    return sorted_records
+      # if max distance is none then determine the maximum
+      # diagonal across the unit system this vector has
+      # this is the theoretical max distance you can request
+      if max_distance is None:
+        min_x, max_x, min_y, max_y = self.get_extent().values()
+        max_distance = np.sqrt((max_x - min_x)**2 + (max_y - min_y)**2)
+
+      # configure the QUERY, in this case we take the
+      # point and continually draw an intersecting circle
+      # around it until we hit n items
+      hits = {}
+      distance = 1
+      while len(hits) < n:
+        params = {'return_distance': True, 
+          'all_matches': True,
+          'max_distance': distance}
+        buffered_point = point.buffer(distance)
+        (idxs, dists) = self._spatial_index.query_nearest([buffered_point], **params)
+        dists = dists.tolist()
+        if len(dists) > 0:
+          for i in range(len(dists)):
+            dist = dists[i] # this is zero because we are inside poly
+            tree_index = idxs.tolist()[1][i]
+  
+            # now get the distance between point and feature
+            matched_geom = self._geometries[tree_index]
+            dist = matched_geom.distance(point)
+            hits[tree_index] = (self._features[tree_index], dist)
+
+            if len(hits) >= n:
+              return list(hits.values())
+        distance *= 2
+        if max_distance is not None and distance > max_distance:
+          return list(hits.values())
+      return list(hits.values())
+
+    else: 
+      if type(xy) == tuple and len(xy) == 2:
+        (x, y) = xy
+        point = ogr.Geometry(ogr.wkbPoint)
+        point.AddPoint_2D(x, y)
+      elif type(xy) == ogr.Geometry:
+        point = xy
+
+      if max_distance is not None:
+        bounding_shape = point.Buffer(max_distance)
+        self._layer.SetSpatialFilter(bounding_shape)
+
+      dists = [(f, point.Distance(f.GetGeometryRef())) for f in self._layer]
+      sorted_records = sorted(dists, key=lambda i: i[1])
+      return sorted_records
 
   # method which will serialize the entire object into something
   # that can be deserialized and reloaded. Features is optional and

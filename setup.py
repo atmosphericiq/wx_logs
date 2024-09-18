@@ -2,13 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
   name='wx_logs',
-  version='0.6.12',
+  version='0.6.15',
   author='Tom Hayden',
   author_email='thayden@gmail.com',
   packages=find_packages(exclude=['tests', 'tests.*']),
   long_description="A weather logging library, useful for processing and analyzing weather data.",
   include_package_data=True,
-  install_requires=['dateparser', 'numpy', 'pytz', 'gdal', 'pyproj', 'gstools', 'windrose', 'matplotlib', 'joblib'],
+  install_requires=['dateparser', 'numpy', 'pytz', 'gdal', 'pyproj', 
+                    'gstools', 'windrose', 'matplotlib', 'shapely', 'joblib'],
   entry_points={
     'console_scripts': [],
   },
