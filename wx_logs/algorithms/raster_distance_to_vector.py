@@ -80,8 +80,10 @@ class RasterDistanceToVector:
             logger.info(f"Putting {len(pool_of_rows)}/{total_rows} rows into queue")
 
         # create a new band and we're going to add one row at a time into this band
-        logger.info(f"Creating new raster band, to populate")
+        logger.info(f"Creating blank new raster band, to populate")
         b2 = self.raster_band.clone_with_no_data()
+
+        logger.info(f"Starting to calculate distances")
         count = 0
         for row in pool_of_rows:
           try:
@@ -93,4 +95,6 @@ class RasterDistanceToVector:
           count += 1
           if count % 100 == 0:
             logger.info(f"Processed {count}/{total_rows} rows")
+
+      logger.info("Finished calculating distances")
       return b2
