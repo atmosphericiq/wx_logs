@@ -125,7 +125,6 @@ class VectorLayer:
       self._layer.CreateFeature(ogr_feature)
 
     self._max_fid += 1
-
     return ogr_feature
 
   def get_extent(self):

@@ -152,6 +152,15 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(b.shape(), (4, 3))
     self.assertEqual(b.values().shape, (3, 4))
 
+  def test_array_of_ints_save_to_file_as_uint8(self):
+    arr = [[1, 2, 3, 3], [1, 4, 5, 6], [12, 7, 8, 9]]
+    b = RasterBand()
+    b.load_array(arr)
+    b.set_nodata(0)
+    b.set_projection_epsg(4326)
+
+    b.write_to_file('/tmp/test_array_ints.tif', True, True, 'uint8')
+
   def test_make_perioidic_gradients_from_snow_map(self):
     b = RasterBand()
     b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.tif')

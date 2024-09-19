@@ -22,6 +22,7 @@ CHUNK_SIZE = 250
 # vector file in read mode, filter it and then find
 # distances
 def calculate_row(row_data, vector_serialized, buffer_dist):
+  logger.info("deserializing layer ...")
   vector = VectorLayer()
   vector.deserialize(vector_serialized)
   row_output = []
@@ -34,13 +35,15 @@ def calculate_row(row_data, vector_serialized, buffer_dist):
   logger.info("chunking row calc to %d chunks" % len(xys_chunked))
 
   # get the distance to the nearest vector object
+  completed = 0
   for chunk in xys_chunked:
-    hits = vector.find_nearest_feature_batch(chunk, 5)
+    hits = vector.find_nearest_feature_batch(chunk, buffer_dist)
     for hit in hits:
       row_output.append(hit[1])
+    completed += 1
 
-  # hits is a list of tuples of feature,dist
-  #row_output = [hit[1] for hit in hits]
+    if completed % 10 == 0:
+      logger.info(f"Completed {completed} / {len(xys_chunked)} chunks")
 
   # turn any nones into nans
   row_output = [np.nan if x is None else x for x in row_output]

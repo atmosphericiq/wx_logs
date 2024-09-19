@@ -425,22 +425,25 @@ class RasterBand:
     center_y = y - (self._pixel_h/2) # we go from the top down
     return (center_x, center_y)
 
-  def write_to_file(self, output_filename, compress=False, overwrite=True):
-    return self.save_to_file(output_filename, compress, overwrite)
+  def write_to_file(self, output_filename, compress=False, overwrite=True, dtype=gdal.GDT_Float32):
+    return self.save_to_file(output_filename, compress, overwrite, dtype)
 
-  def save_to_file(self, output_filename, compress=False, overwrite=True):
+  def save_to_file(self, output_filename, compress=False, overwrite=True, dtype=gdal.GDT_Float32):
     if os.path.exists(output_filename) and not overwrite:
       raise ValueError(f"File exists: {output_filename}")
     if self._projection_wkt is None:
       raise ValueError("No projection set on raster")
-  
+ 
+    if dtype == 'uint8':
+      dtype = gdal.GDT_Byte
+
     options = []
     if compress:
       options = ['COMPRESS=LZW', 'BIGTIFF=YES']
 
     driver = gdal.GetDriverByName('GTiff')
     out_raster = driver.Create(output_filename, 
-      self._cols, self._rows, 1, gdal.GDT_Float32,
+      self._cols, self._rows, 1, dtype,
       options=options)
     out_raster.SetGeoTransform((self._x_origin, self._pixel_w, 0, 
       self._y_origin, 0, -self._pixel_h))
