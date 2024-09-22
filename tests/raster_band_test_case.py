@@ -158,8 +158,40 @@ class RasterBandTestCase(unittest.TestCase):
     b.load_array(arr)
     b.set_nodata(0)
     b.set_projection_epsg(4326)
-
     b.write_to_file('/tmp/test_array_ints.tif', True, True, 'uint8')
+
+  def test_get_coordinate_arrays(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
+    b.load_array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
+    (lons, lats) = b.get_coordinate_arrays()
+    self.assertEqual(lons[0], -180.0)
+    self.assertEqual(lons[1], -60.0)
+    self.assertEqual(lons[2], 60.0)
+    self.assertEqual(lats[0], 90.0)
+    self.assertEqual(lats[1], 30.0)
+    self.assertEqual(lats[2], -30.0)
+
+    # now do centroids
+    (lons, lats) = b.get_coordinate_arrays(True)
+    self.assertEqual(lons[0], -120.0)
+    self.assertEqual(lons[1], 0.0)
+    self.assertEqual(lons[2], 120.0)
+    self.assertEqual(lats[0], 60.0)
+    self.assertEqual(lats[1], 0.0)
+    self.assertEqual(lats[2], -60.0)
+
+  def test_flatten_function(self):
+    b = RasterBand()
+    b.blank_raster(3, 3, (360/3, 180/3), (-180,90))
+    b.load_array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
+    flat = b.flatten()
+    self.assertEqual(flat[0], 1.0)
+    self.assertEqual(flat[1], 2.0)
+    self.assertEqual(flat[2], 3.0)
+    self.assertEqual(len(flat), 9)
+    self.assertEqual(flat.shape, (9,))
+    self.assertEqual(flat.ndim, 1)
 
   def test_make_perioidic_gradients_from_snow_map(self):
     b = RasterBand()

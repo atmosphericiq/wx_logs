@@ -338,7 +338,7 @@ class RasterBand:
     # get epsg and proj string 
     epsg_code = crs.to_epsg()
     proj_string = crs.to_proj4()
-    logger.info(f"Loaded raster with Datum: {datum} EPSG: {epsg_code}")
+    logger.debug(f"Loaded raster with Datum: {datum} EPSG: {epsg_code}")
     
     self._datum = datum
     self._epsg_code = epsg_code
@@ -352,6 +352,14 @@ class RasterBand:
   # upper left point
   def ul(self):
     return (self._x_origin, self._y_origin)
+
+  # return two lists of arrays
+  # x coordinates and y coordinates
+  # note: these should return the center points
+  def get_coordinate_arrays(self):
+    x = np.array([self._x_origin + (j * self._pixel_w) for j in range(self._cols)])
+    y = np.array([self._y_origin - (i * self._pixel_h) for i in range(self._rows)])
+    return x, y
 
   def lr(self):
     return (self._x_origin + self._cols * self._pixel_w,
@@ -481,6 +489,27 @@ class RasterBand:
     # then replace the existing data with this new data
     self._band.WriteArray(row_data, 0, row_number)
 
+  # return two lists of arrays
+  # x coordinates and y coordinates
+  # note: these should return the center points
+  def get_coordinate_arrays(self, return_centroids=False):
+    x = np.array([self._x_origin + (j * self._pixel_w) for j in range(self._cols)])
+    y = np.array([self._y_origin - (i * self._pixel_h) for i in range(self._rows)])
+
+    # if they want the centroids adjust both values
+    # by width/2 so we get the point centerpoint
+    if return_centroids:
+      x = x + (self._pixel_w / 2)
+      y = y - (self._pixel_h / 2)
+
+    return x, y
+    
+  def flatten(self):
+    return self.values().ravel()
+
+  # return a list of rows, where each row is a list of tuples
+  # the first element of the tuple is the x,y coordinate
+  # the second element is the value
   def rows(self, return_centroids=False):
     for i in range(self._rows):
       y = self._y_origin - (i * self._pixel_h)
