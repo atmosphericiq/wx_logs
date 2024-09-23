@@ -567,8 +567,50 @@ class RasterBand:
     data = self.values()
     # count rows that are NOT nan
     nodata_count = np.count_nonzero(np.isnan(data))
-
     return nodata_count / data.size
+
+  # split this raster into chunks of size rows x cols
+  # and create a new raster object for each one that we make
+  # note that the size is a function of the size of the grid
+  # so like 2,2 will return 2 grid boxes by 2 grid boxes, etc
+  # this is regardless of the projection
+  def chunk_fixed_size(self, rows=1000, cols=1000):
+    self._throw_except_if_band_not_loaded()
+
+    # make sure the rows and cols are valid
+    if rows > self._rows or cols > self._cols:
+      raise ValueError("Invalid chunk size")
+
+    # make sure boht are ints
+    rows = int(rows)
+    cols = int(cols)
+
+    # now we need to iterate over the raster and create
+    # new rasters for each chunk, but let's make sure we
+    # use the native gdal library for that
+    for i in range(0, self._rows, rows):
+      rows_to_read = rows
+      if i + rows > self._rows:
+        rows_to_read = self._rows - i
+
+      for j in range(0, self._cols, cols):
+        cols_to_read = cols
+        if j + cols > self._cols:
+          cols_to_read = self._cols - j
+
+        data = self._band.ReadAsArray(j, i, cols_to_read, rows_to_read)
+        data = np.where(data == self._nodata, np.nan, data)
+        new_raster = RasterBand()
+        new_raster.blank_raster(rows_to_read, cols_to_read,
+          (self._pixel_w, self._pixel_h),
+          (self._x_origin + (j * self._pixel_w), 
+           self._y_origin - (i * self._pixel_h)))
+        new_raster.load_array(data, self._nodata)
+        assert new_raster.width() == cols_to_read, "Cols do not match"
+        assert new_raster.height() == rows_to_read, "Rows do not match"
+        if self._projection_wkt is not None:
+          new_raster.set_projection(self._projection_wkt)
+        yield new_raster
 
   # return the values in the raster as a numpy array
   # note the values shape is rows + cols

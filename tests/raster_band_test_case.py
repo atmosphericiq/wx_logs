@@ -285,6 +285,85 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertTrue(os.path.exists(out_filepath))
     #os.remove(out_filepath)
 
+  # we need to be able to split a raster into smaller chunks
+  # and then write those chunks out to file
+  def test_split_raster_into_even_sized_chunks(self):
+    r = RasterBand()
+    r.blank_raster(4, 4, (2, 2), (-4, 4))
+    r.set_projection_epsg(4326)
+    r.load_array([[1.0, 2.0, 3.0, 10.0], 
+      [14.0, 11.0, 4.0, 5.0], 
+      [15.0, 16.0, 17.0, 18.0],  
+      [12.0, 7.0, 8.0, 9.0]])
+    chunks = list(r.chunk_fixed_size(2, 2))
+    self.assertEqual(len(chunks), 4)
+  
+    # confirm the extent
+    extent = r.get_extent()
+    self.assertEqual(extent['min_x'], -4)
+    self.assertEqual(extent['min_y'], -4)
+    self.assertEqual(extent['max_x'], 4)
+    self.assertEqual(extent['max_y'], 4)
+
+    for i, chunk in enumerate(chunks):
+      self.assertEqual(chunk.shape(), (2, 2))
+      self.assertEqual(chunk.get_projection_epsg(), 4326)
+
+    chunk0 = chunks[0]
+    extent = chunk0.get_extent()
+    self.assertEqual(extent['min_x'], -4)
+    self.assertEqual(extent['min_y'], 0)
+    self.assertEqual(extent['max_x'], 0)
+    self.assertEqual(extent['max_y'], 4)
+
+    # confiurm chunk 1 has right extent
+    chunk1 = chunks[1]
+    extent = chunk1.get_extent()
+    self.assertEqual(extent['min_x'], 0)
+    self.assertEqual(extent['min_y'], 0)
+    self.assertEqual(extent['max_x'], 4)
+    self.assertEqual(extent['max_y'], 4)
+  
+  # public-images.engineeringdirector.com/dem/resized_10km.tif
+  def test_try_chunking_on_a_real_file(self):
+    r = RasterBand()
+    r.load_url('https://public-images.engineeringdirector.com/dem/resized_10km.tif')
+    r.load_band(1)
+
+    # Size is 4008, 3870
+    # confirm sizes
+    self.assertEqual(r.width(), 4008)
+    self.assertEqual(r.height(), 3870)
+    self.assertEqual(r.get_nodata(), 127)
+    self.assertEqual(r.get_projection_epsg(), 3857)
+    self.assertEqual(r.sum(), 6653376128)
+
+    # ok so on a 4008,3870 file, there should be 
+    # 3 rows of 1000x1000
+    # 4 cols of 1000x1000
+    # the rightmost column will have width of 8
+    # the bottommost row will have height of 870
+    # so thats 4x5 = 20
+    chunks = list(r.chunk_fixed_size(1000, 1000))
+    self.assertEqual(len(chunks), 20)
+
+    # chunk0 should be 1000x1000
+    chunk0 = chunks[0]
+    self.assertEqual(chunk0.shape(), (1000, 1000))
+    self.assertEqual(chunk0.get_projection_epsg(), 3857)
+    self.assertEqual(chunk0.get_nodata(), 127)
+
+    # chunk3 should be 1000x870
+    chunk3 = chunks[4]
+    self.assertEqual(chunk3.shape(), (8, 1000))
+
+    # chunk19 should be 
+    chunk19 = chunks[19]
+    self.assertEqual(chunk19.shape(), (8, 870))
+    self.assertEqual(chunk19.get_projection_epsg(), 3857)
+    self.assertEqual(chunk19.get_nodata(), 127)
+
+
   def test_save_to_file_and_load_from_file_check_upper_left(self):
     r = RasterBand()
     r.blank_raster(4, 4, (2, 2), (-4, 4))
@@ -314,6 +393,9 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(r2.height(), r.height())
     self.assertEqual(r2.get_projection_epsg(), 4326)
     npt.assert_array_equal(r.values(), r2.values())
+    values_shp = r.values().shape
+    values_shp2 = r2.values().shape
+    self.assertEqual(values_shp, (4, 4))
     self.assertEqual(r.get_value(0,0), r2.get_value(0, 0))
     self.assertEqual(r.get_value(3.5, 3.5), 10.0)
 
