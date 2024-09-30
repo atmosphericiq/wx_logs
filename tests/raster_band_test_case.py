@@ -323,7 +323,83 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(extent['min_y'], 0)
     self.assertEqual(extent['max_x'], 4)
     self.assertEqual(extent['max_y'], 4)
-  
+ 
+  # note that what the overlap will do is potentially pull
+  # in chunks from other chunks and adjust it slightly
+  def test_chunking_but_with_1_box_overlap_reflection(self):
+    r = RasterBand()
+    r.blank_raster(4, 4, (2, 2), (-4, 4))
+    r.set_projection_epsg(4326)
+    r.load_array([[1.0, 2.0, 3.0, 10.0], 
+      [14.0, 11.0, 4.0, 5.0], 
+      [15.0, 16.0, 17.0, 18.0],  
+      [12.0, 7.0, 8.0, 9.0]])
+    chunks_with_border = list(r.chunk_fixed_size(3, 3, 1, 1))
+    chunk0 = chunks_with_border[0]
+    self.assertEqual(chunk0.shape(), (5, 5))
+    self.assertEqual(chunk0.get_projection_epsg(), 4326)
+
+    # chunk 1 should be 3x5 since its the right col
+    chunk1 = chunks_with_border[1]
+    self.assertEqual(chunk1.shape(), (3, 5))
+
+    row0 = chunks_with_border[0].values()[0]
+    col0 = chunks_with_border[0].values()[:,0]
+    self.assertEqual(np.isnan(row0[0]), True)
+    self.assertEqual(np.isnan(col0[0]), True)
+
+    row1 = chunks_with_border[0].values()[1]
+    col1 = chunks_with_border[0].values()[:,1]
+    self.assertEqual(np.isnan(row1[0]), True)
+    self.assertEqual(row1[1], 1.0)
+    self.assertEqual(row1[2], 2.0)
+    self.assertEqual(row1[3], 3.0)
+    self.assertEqual(row1[4], 10.0)
+
+  def test_chunking_with_padding_and_reflect(self):
+    r = RasterBand()
+    r.blank_raster(4, 4, (2, 2), (-4, 4))
+    r.set_projection_epsg(4326)
+    r.load_array([[1.0, 2.0, 3.0, 10.0], 
+      [14.0, 11.0, 4.0, 5.0], 
+      [15.0, 16.0, 17.0, 18.0],  
+      [12.0, 7.0, 8.0, 9.0]])
+    chunks_with_border = list(r.chunk_fixed_size(3, 3, 1, 1, 'reflect'))
+    chunk0 = chunks_with_border[0]
+    self.assertEqual(chunk0.shape(), (5, 5))
+    self.assertEqual(chunk0.get_projection_epsg(), 4326)
+
+    row1 = chunks_with_border[0].values()[1]
+    col0 = chunks_with_border[0].values()[:,0]
+    self.assertEqual(row1.tolist(), [2.0, 1.0, 2.0, 3.0, 10.0])
+    self.assertEqual(col0.tolist(), [11.0, 2.0, 11.0, 16.0, 7.0]) # this is reflected
+
+  def test_try_chunking_real_file_with_padding(self):
+    r = RasterBand()
+    r.load_url('https://public-images.engineeringdirector.com/dem/resized_10km.tif')
+    r.load_band(1)
+
+    # Size is 4008, 3870
+    # confirm sizes
+    self.assertEqual(r.width(), 4008)
+    self.assertEqual(r.height(), 3870)
+    self.assertEqual(r.get_nodata(), 127)
+    self.assertEqual(r.get_projection_epsg(), 3857)
+    self.assertEqual(r.sum(), 6653376128)
+
+    chunks = list(r.chunk_fixed_size(1000, 1000, 100, 100, 'reflect'))
+    self.assertEqual(len(chunks), 20)
+
+    chunk0 = chunks[0]
+    self.assertEqual(chunk0.shape(), (1200, 1200))
+    self.assertEqual(chunk0.get_projection_epsg(), 3857)
+    self.assertEqual(chunk0.get_nodata(), 127)
+
+    # so chunk be 208x1200
+    # normall 8 but padding by 200
+    chunk4 = chunks[4]
+    self.assertEqual(chunk4.shape(), (208, 1200))
+
   # public-images.engineeringdirector.com/dem/resized_10km.tif
   def test_try_chunking_on_a_real_file(self):
     r = RasterBand()

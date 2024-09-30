@@ -24,7 +24,7 @@ class RasterBand:
     self._pixel_h = None
     self._storage_method = None
     self._extent = None
-    self._metadata = None
+    self._metadata = {}
 
     # projection stuff 
     self._datum = None
@@ -399,6 +399,9 @@ class RasterBand:
   def get_metadata(self):
     return self._metadata
 
+  def add_metadata(self, field, name):
+    return self.set_metadata(field, name)
+
   def set_metadata(self, field, name):
     assert field is not None, "Field must not be None"
     self._metadata[field] = name
@@ -574,7 +577,7 @@ class RasterBand:
   # note that the size is a function of the size of the grid
   # so like 2,2 will return 2 grid boxes by 2 grid boxes, etc
   # this is regardless of the projection
-  def chunk_fixed_size(self, rows=1000, cols=1000):
+  def chunk_fixed_size(self, rows=1000, cols=1000, overlap_rows=0, overlap_cols=0, overlap_method='nan'):
     self._throw_except_if_band_not_loaded()
 
     # make sure the rows and cols are valid
@@ -584,32 +587,83 @@ class RasterBand:
     # make sure boht are ints
     rows = int(rows)
     cols = int(cols)
+    overlap_rows = int(overlap_rows)
+    overlap_cols = int(overlap_cols)
 
     # now we need to iterate over the raster and create
     # new rasters for each chunk, but let's make sure we
     # use the native gdal library for that
     for i in range(0, self._rows, rows):
-      rows_to_read = rows
-      if i + rows > self._rows:
-        rows_to_read = self._rows - i
+      start_row = max(i - overlap_rows, 0)
+      end_row = min(i + rows + overlap_rows, self._rows)
+      rows_to_read = end_row - start_row
+      expected_rows = min(i + rows, self._rows) - max(i, 0) + (2 * overlap_rows)
 
       for j in range(0, self._cols, cols):
-        cols_to_read = cols
-        if j + cols > self._cols:
-          cols_to_read = self._cols - j
+        start_col = max(j - overlap_cols, 0)
+        end_col = min(j + cols + overlap_cols, self._cols)
+        cols_to_read = end_col - start_col
+        expected_cols = min(j + cols, self._cols) - max(j, 0) + (2 * overlap_cols)
 
-        data = self._band.ReadAsArray(j, i, cols_to_read, rows_to_read)
+        data = self._band.ReadAsArray(start_col, start_row, 
+          cols_to_read, rows_to_read)
         data = np.where(data == self._nodata, np.nan, data)
+
+        logger.debug(f"data shape = {data.shape}")
+
+        # now we have to determine how to pad in the case
+        # where haven't queried the rows from the data
+        # which is the case when we're at the edge
+        if rows_to_read < expected_rows:
+          if start_row == 0:
+            #print(f"padding top to {expected_rows}")
+            if overlap_method == 'nan':
+              data = np.pad(data, ((expected_rows - rows_to_read, 0), (0, 0)), 
+                'constant', constant_values=np.nan)
+            elif overlap_method == 'reflect':
+              data = np.pad(data, ((expected_rows - rows_to_read, 0), (0, 0)), 
+                'reflect')
+          elif end_row == self._rows:
+            #print(f"padding bottom to {expected_rows}")
+            if overlap_method == 'nan':
+              data = np.pad(data, ((0, expected_rows - rows_to_read), (0, 0)), 
+                'constant', constant_values=np.nan)
+            elif overlap_method == 'reflect':
+              data = np.pad(data, ((0, expected_rows - rows_to_read), (0, 0)), 
+                'reflect')
+        if cols_to_read < expected_cols:
+          if start_col == 0:
+            #print(f"padding left to {expected_cols}")
+            if overlap_method == 'nan':
+              data = np.pad(data, ((0, 0), (expected_cols - cols_to_read, 0)), 
+                'constant', constant_values=np.nan)
+            elif overlap_method == 'reflect':
+              data = np.pad(data, ((0, 0), (expected_cols - cols_to_read, 0)), 
+                'reflect')
+          elif end_col == self._cols:
+            #print(f"padding right to {expected_cols}")
+            if overlap_method == 'nan':
+              data = np.pad(data, ((0, 0), (0, expected_cols - cols_to_read)), 
+                'constant', constant_values=np.nan)
+            elif overlap_method == 'reflect':
+              data = np.pad(data, ((0, 0), (0, expected_cols - cols_to_read)), 
+                'reflect')
+
+        #print((rows_to_read, expected_rows, cols_to_read, expected_cols))
+        #print(data.shape)
+        #print((expected_rows, expected_cols))
         new_raster = RasterBand()
-        new_raster.blank_raster(rows_to_read, cols_to_read,
+        new_raster.blank_raster(expected_rows, expected_cols,
           (self._pixel_w, self._pixel_h),
           (self._x_origin + (j * self._pixel_w), 
            self._y_origin - (i * self._pixel_h)))
         new_raster.load_array(data, self._nodata)
-        assert new_raster.width() == cols_to_read, "Cols do not match"
-        assert new_raster.height() == rows_to_read, "Rows do not match"
+        assert new_raster.width() == expected_cols, "Cols do not match"
+        assert new_raster.height() == expected_rows, "Rows do not match"
         if self._projection_wkt is not None:
           new_raster.set_projection(self._projection_wkt)
+        new_raster.add_metadata('OVERLAP_ROWS', overlap_rows)
+        new_raster.add_metadata('OVERLAP_COLS', overlap_cols)
         yield new_raster
 
   # return the values in the raster as a numpy array

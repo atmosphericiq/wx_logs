@@ -281,7 +281,7 @@ class VectorLayer:
         os.remove(vector_file)
       if os.path.isdir(vector_file):
         shutil.rmtree(vector_file)
-    self._datasource = driver.CreateDataSource(vector_file)
+    self._datasource = self._driver.CreateDataSource(vector_file)
 
   def get_driver_name(self):
     return self._driver_name  
