@@ -174,6 +174,67 @@ class VectorLayerTestCase(unittest.TestCase):
       self.assertEqual(l.get_feature_count(), 1)
       self.assertEqual(l.get_projection_epsg(), 4326)
 
+  def test_create_file_per_shape_but_some_lines_with_single_points(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'LINE', 4326)
+
+    # make a linestring w one point
+    geom1 = ogr.Geometry(ogr.wkbLineString)
+    geom1.AddPoint_2D(12, 12)
+    feature1 = layer.blank_feature(geom1)
+    layer.add_feature(feature1)
+
+    # make a better line
+    geom2 = ogr.Geometry(ogr.wkbLineString)
+    geom2.AddPoint_2D(2, 2)
+    geom2.AddPoint_2D(3, 3)
+    geom2.AddPoint_2D(4, 4)
+    feature2 = layer.blank_feature(geom2)
+    layer.add_feature(feature2)
+
+    # ok now call the function which will create a new
+    # VectorLayer for each file, with each shape in memory
+    # so you can independently save them
+    vector_layers = list(layer.explode())
+    self.assertEqual(len(vector_layers), 1)
+
+  def test_shape_type(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'LINE', 4326)
+    self.assertEqual(layer.get_shape_type(), ogr.wkbLineString)
+
+  def test_create_single_file_per_shape_but_shapes_are_lines(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'LINE', 4326)
+    layer.add_field_defn('name', ogr.OFTString)
+    geom1 = ogr.Geometry(ogr.wkbLineString)
+    geom1.AddPoint_2D(1, 1)
+    geom1.AddPoint_2D(2, 2)
+    feature1 = layer.blank_feature(geom1)
+    feature1.SetField('name', 'pokonos')
+    layer.add_feature(feature1)
+    self.assertEqual(layer.get_shape_type(), ogr.wkbLineString)
+
+    geom2 = ogr.Geometry(ogr.wkbLineString)
+    geom2.AddPoint_2D(3, 3)
+    geom2.AddPoint_2D(4, 4)
+    feature2 = layer.blank_feature(geom2)
+    feature2.SetField('name', 'pikachu')
+    layer.add_feature(feature2)
+
+    # ok now call the function which will create a new
+    # VectorLayer for each file, with each shape in memory
+    # so you can independently save them
+    vector_layers = list(layer.explode())
+    self.assertEqual(len(vector_layers), 2)
+    for l in vector_layers:
+      self.assertEqual(l.get_feature_count(), 1)
+      self.assertEqual(l.get_projection_epsg(), 4326)
+      self.assertEqual(l.get_shape_type(), ogr.wkbLineString)
+
   def test_load_from_url_clone_to_memory_object(self):
     url = 'https://public-images.engineeringdirector.com/dem/wholefoods.gpkg'
     layer = VectorLayer()

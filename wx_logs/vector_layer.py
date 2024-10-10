@@ -21,7 +21,8 @@ epsg4326 = osr.SpatialReference()
 epsg4326.ImportFromEPSG(4326)
 epsg4326.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
 
-SHAPE_TYPES = ['POINT', 'LINE', 'POLYGON', 'MULTIPOLYGON']
+SHAPE_TYPES = ['POINT', 'LINE', 'POLYGON', 'MULTIPOLYGON',
+  'LINESTRING', 'MULTILINESTRING']
 PROJECTIONS = [4326, 3857]
 
 class VectorLayer:
@@ -34,6 +35,7 @@ class VectorLayer:
     self._datasource = None
     self._layer = None
     self._fields = {}
+    self._shape_type = None
 
     # projection stuff
     self._datum = None
@@ -100,6 +102,15 @@ class VectorLayer:
     # if we're using MEMORY then put into local array
     if self.get_driver_name() == 'MEMORY':
       self._features[self._max_fid] = ogr_feature
+
+      # if this feature is a line string or multi line string
+      # and only has one point, then we skip it
+      ogr_geom = ogr_feature.GetGeometryRef()
+      geom_type = ogr_geom.GetGeometryType()
+      if geom_type == ogr.wkbLineString or geom_type == ogr.wkbMultiLineString:
+        if ogr_geom.GetPointCount() == 1:
+          logger.warning("Line feature with only one point, skipping")
+          return False
 
       # also set any geometries 
       ogr_geom = ogr_feature.GetGeometryRef()
@@ -302,6 +313,7 @@ class VectorLayer:
     # copy the layer itself and the spatial reference
     old_layer_def = old_vector_layer._layer.GetLayerDefn()
     self._layer = self._datasource.CreateLayer(new_name, srs=srs, geom_type=geom_type)
+    self._shape_type = geom_type
 
     # copy the field definitions
     field_defs = [old_layer_def.GetFieldDefn(i) for i in range(old_layer_def.GetFieldCount())]
@@ -321,12 +333,16 @@ class VectorLayer:
 
     if shape_type.upper() == 'POINT':
       use_shape = ogr.wkbPoint
-    elif shape_type.upper() == 'LINE':
+    elif shape_type.upper() in ('LINE', 'LINESTRING'):
       use_shape = ogr.wkbLineString
+    elif shape_type.upper() in ('MULTILINE', 'MULTILINESTRING'):
+      use_shape = ogr.wkbMultiLineString
     elif shape_type.upper() == 'POLYGON':
       use_shape = ogr.wkbPolygon
     elif shape_type.upper() == 'MULTIPOLYGON':
       use_shape = ogr.wkbMultiPolygon
+    else:
+      raise ValueError(f"Invalid shape type {shape_type}")
 
     srs = osr.SpatialReference()
     if projection_wkt is None:
@@ -338,6 +354,7 @@ class VectorLayer:
     self._layer = self._datasource.CreateLayer(layer_name,
       srs=srs, geom_type=use_shape)
     self.auto_set_projection()
+    self._shape_type = use_shape
 
   def add_field_defn(self, field_name, field_type='int'):
     return self.add_field_def(field_name, field_type)
@@ -490,6 +507,10 @@ class VectorLayer:
       field_type = field_defn.GetTypeName()
       self._fields[field_name] = {'type': field_type}
 
+  def get_shape_type(self):
+    assert self._shape_type is not None, "Shape type is not set"
+    return self._shape_type
+
   # this will create a single form of this class for
   # each shape that is in this shapefile
   def explode(self):
@@ -499,8 +520,10 @@ class VectorLayer:
       new_layer.createmem(self.get_name())
       new_layer.copy_blank_layer(self, self.get_name())
       new_layer.auto_set_projection()
-      new_layer.add_feature(feature.Clone())
-      yield new_layer
+      cloned_feature = self.copy_feature(feature)
+      feature_success = new_layer.add_feature(cloned_feature)
+      if feature_success is not False:
+        yield new_layer
 
   # this will just set the variables on this object based
   # on what the projection is in the layer
