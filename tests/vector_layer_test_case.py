@@ -150,6 +150,30 @@ class VectorLayerTestCase(unittest.TestCase):
     # now delete the test file
     os.remove('/tmp/test.gpkg')
 
+  def test_create_single_file_per_shape(self):
+    layer = VectorLayer()
+    layer.createmem('test')
+    layer.create_layer_epsg('test', 'POINT', 4326)
+    layer.add_field_defn('name', ogr.OFTString)
+    geom1 = ogr.Geometry(ogr.wkbPoint)
+    geom1.AddPoint_2D(1, 1)
+    feature1 = layer.blank_feature(geom1)
+    feature1.SetField('name', 'pokonos')
+    layer.add_feature(feature1)
+
+    feature2 = layer.blank_feature(geom1)
+    feature2.SetField('name', 'pikachu')
+    layer.add_feature(feature2)
+
+    # ok now call the function which will create a new
+    # VectorLayer for each file, with each shape in memory
+    # so you can independently save them
+    vector_layers = list(layer.explode())
+    self.assertEqual(len(vector_layers), 2)
+    for l in vector_layers:
+      self.assertEqual(l.get_feature_count(), 1)
+      self.assertEqual(l.get_projection_epsg(), 4326)
+
   def test_load_from_url_clone_to_memory_object(self):
     url = 'https://public-images.engineeringdirector.com/dem/wholefoods.gpkg'
     layer = VectorLayer()

@@ -490,6 +490,18 @@ class VectorLayer:
       field_type = field_defn.GetTypeName()
       self._fields[field_name] = {'type': field_type}
 
+  # this will create a single form of this class for
+  # each shape that is in this shapefile
+  def explode(self):
+    logger.info("exploding layer %s" % self.get_name())
+    for feature in self.get_layer():
+      new_layer = VectorLayer()
+      new_layer.createmem(self.get_name())
+      new_layer.copy_blank_layer(self, self.get_name())
+      new_layer.auto_set_projection()
+      new_layer.add_feature(feature.Clone())
+      yield new_layer
+
   # this will just set the variables on this object based
   # on what the projection is in the layer
   def auto_set_projection(self):
