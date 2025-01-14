@@ -165,6 +165,34 @@ class WeatherStationTestCase(unittest.TestCase):
     a.add_humidity(np.nan, datetime.datetime.now())
     self.assertEqual(a.get_humidity('MEAN'), 75)
 
+  # add precipitation, but precip is tricky because its a measure
+  # over the past N minutes so we need to be able to normalize
+  # for that
+  def test_adding_preciptiation(self):
+    dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
+    a = WeatherStation('STATION')
+    a.add_precipitation_mm(10, 60, dt)
+    self.assertEqual(a.get_precipitation_mm('SUM'), 10)
+
+  def test_adding_two_hours_of_precip(self):
+    dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
+    dt_one_hour_later = datetime.datetime(2020, 1, 1, 1, 0, 0)
+    a = WeatherStation('STATION')
+    a.add_precipitation_mm(10, 60, dt)
+    a.add_precipitation_mm(20, 60, dt_one_hour_later)
+    self.assertEqual(a.get_precipitation_mm('SUM'), 30)
+
+  def test_adding_three_hours_of_precip(self):
+    dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
+    dt_one_hour_later = datetime.datetime(2020, 1, 1, 1, 0, 0)
+    dt_two_hours_later = datetime.datetime(2020, 1, 1, 2, 0, 0)
+    a = WeatherStation('STATION')
+    a.add_precipitation_mm(0, 60, dt)
+    a.add_precipitation_mm(20, 60, dt_one_hour_later)
+    a.add_precipitation_mm(30, 60, dt_two_hours_later)
+    self.assertEqual(a.get_precipitation_mm('SUM'), 50)
+    self.assertEqual(a.get_precipitation_mm('MEAN'), 16.67)
+
   def test_putting_nans_and_nones_into_temperature_too(self):
     a = WeatherStation('STATION')
     a.add_temp_c(1, datetime.datetime.now())
@@ -348,6 +376,21 @@ class WeatherStationTestCase(unittest.TestCase):
     self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['percent_valid'], round(1.0/8760.0, 4))
     self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['max_hours'], 366 * 24) # leap
     self.assertEqual(summary['air']['time_of_wetness']['by_year']['2020']['total_hours'], 1)
+
+
+  def test_serialize_with_precipitation(self):
+    a = WeatherStation('STATION')
+    dt0 = datetime.datetime(2020, 1, 1, 0, 0, 0)
+
+    # iterate through 24 hours
+    total = 0 
+    for i in range(0, 24):
+      a.add_precipitation_mm(i, 60, dt0 + datetime.timedelta(hours=i))
+      total += i
+
+    summary = json.loads(a.serialize_summary())
+
+    self.assertEqual(summary['air']['precipitation']['sum'], total)
 
   def test_serialize_summary_function(self):
     a = WeatherStation('BOUY')

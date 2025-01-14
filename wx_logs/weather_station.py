@@ -43,6 +43,8 @@ class WeatherStation:
     self.air_humidity_values = {}
     self.air_dewpoint_c_values = {}
 
+    self.precip_values = {}
+
     self.location = {'latitude': None,
       'longitude': None, 'elevation': None}
 
@@ -176,6 +178,27 @@ class WeatherStation:
     if self.tow is not None and value is not None:
       self.tow.add_temperature(value, dt)
 
+  # precipitation is more complicated, because it involves a range
+  # of times, not just a single one. but gets reported as a single one
+  # value = mm of precipitation
+  # number_mins = number of minutes the precipitation occurred
+  # dt = datetime object
+  # example: 10mm over last 60 minutes
+  def add_precip_mm(self, value, number_mins, dt):
+    dt = validate_dt_or_convert_to_datetime_obj(dt)
+    value = should_value_be_none(value)
+    payload = {
+      'value': value,
+      'number_mins': number_mins
+    }
+    self.precip_values[dt] = payload
+
+  # just for precip typos
+  def add_precipitation_mm(self, value, number_mins, dt):
+    self.add_precip_mm(value, number_mins, dt)
+
+  # value = 0 to 100
+  # dt = datetime object
   def add_humidity(self, value, dt):
     value = should_value_be_none(value)
     dt = validate_dt_or_convert_to_datetime_obj(dt)
@@ -300,6 +323,13 @@ class WeatherStation:
   def _max(self, values):
     return round(max([v[1] for v in values if v[1] is not None]), self._precision)
 
+  def _sum(self, values):
+    return round(np.sum([float(v[1]) for v in values if v[1] is not None]), self._precision)
+
+  def get_precipitation_mm(self, measure='SUM'):
+    measure = measure.upper()
+    return self._get_value_metric('precip_values', measure)
+
   def get_temp_c(self, measure='MEAN'):
     measure = measure.upper()
     return self._get_value_metric('air_temp_c_values', measure)
@@ -329,6 +359,8 @@ class WeatherStation:
       return self.ozone_ppb_values
     elif field_name == 'so2':
       return self.so2_values
+    elif field_name in ('precipitation', 'precip'):
+      return self.precip_values
     else:
       raise ValueError(f"Invalid field name: {field_name}")
 
@@ -405,6 +437,11 @@ class WeatherStation:
     # remove any none values
     field_values = [v for v in field_values if v is not None]
 
+    # if its a precip field then we have a value field and length
+    # so we need to extract the value field first 
+    if field_name == 'precip_values':
+      field_values = [(v[0], v[1]['value']) for v in field_values]
+
     if len(field_values) == 0:
       return None
     if measure == 'MEAN':
@@ -413,6 +450,8 @@ class WeatherStation:
       return self._max(field_values)
     elif measure == 'MIN':
       return self._min(field_values)
+    elif measure == 'SUM':
+      return self._sum(field_values)
     else:
       raise ValueError(f"Invalid measure: {measure}")
 
@@ -486,6 +525,14 @@ class WeatherStation:
           'count': len(self.air_pressure_hpa_values),
           'date_range': self.get_date_range('air_pressure_hpa'),
           'full_year': self.is_full_year_of_data('air_pressure_hpa')
+        },
+        'precipitation': {
+          'count': len(self.precip_values),
+          'date_range': self.get_date_range('precipitation'),
+          'full_year': self.is_full_year_of_data('precipitation'),
+          'sum': self.get_precipitation_mm('SUM'),
+          'min': self.get_precipitation_mm('MIN'),
+          'max': self.get_precipitation_mm('MAX')
         },
         'wind': {
           'speed': {
