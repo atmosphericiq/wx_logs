@@ -13,6 +13,7 @@ import logging
 import datetime
 import pytz
 from .wind_rose import WindRose
+from .hourly_grid import HourlyGrid
 from .tow_calculator import TOWCalculator
 from .helpers import should_value_be_none, simple_confirm_value_in_range, \
     validate_dt_or_convert_to_datetime_obj
@@ -52,6 +53,9 @@ class WeatherStation:
     # WindRose class, so we can organize all the 
     # functions there
     self.wind_rose = WindRose(8, precision)
+
+    # support precipitation with the hourly grid
+    self.precip_grid = HourlyGrid()
 
     # pm25 and pm10 are ug/m3
     self.pm_25_values = {}
@@ -193,6 +197,10 @@ class WeatherStation:
     }
     self.precip_values[dt] = payload
 
+    # if we have a ONE HOUR object, then add the precipitation
+    if number_mins == 60:
+      self.precip_grid.add(dt, value)
+
   # just for precip typos
   def add_precipitation_mm(self, value, number_mins, dt):
     self.add_precip_mm(value, number_mins, dt)
@@ -327,8 +335,10 @@ class WeatherStation:
     return round(sum([v[1] for v in values if v[1] is not None]), self._precision)
 
   def get_precipitation_mm(self, measure='SUM'):
-    measure = measure.upper()
-    return self._get_value_metric('precip_values', measure)
+    if measure == 'SUM':
+      return self.precip_grid.get_total()
+    elif measure == 'MEAN':
+      return self.precip_grid.get_mean()
 
   def get_temp_c(self, measure='MEAN'):
     measure = measure.upper()
@@ -436,11 +446,6 @@ class WeatherStation:
 
     # remove any none values
     field_values = [v for v in field_values if v is not None]
-
-    # if its a precip field then we have a value field and length
-    # so we need to extract the value field first 
-    if field_name == 'precip_values':
-      field_values = [(v[0], v[1]['value']) for v in field_values]
 
     if len(field_values) == 0:
       return None

@@ -31,7 +31,7 @@ class HourlyGridTestCase(unittest.TestCase):
     self.assertEqual(grid.get_total_hours(), 24+24+23)
 
   def test_full_year(self):
-    grid = HourlyGrid()
+    grid = HourlyGrid(0.0)
     jan1 = datetime.datetime(2022, 1, 1, 0, 0)
     dec31 = datetime.datetime(2022, 12, 31, 23, 59, 59)
 
@@ -48,6 +48,8 @@ class HourlyGridTestCase(unittest.TestCase):
     self.assertEqual(grid.get_total(), total)
     self.assertEqual(grid.get_total_by_year(), {2022: total})
 
+    self.assertEqual(grid.get_mean(), total / (24*365))
+
   def test_two_years(self):
     grid = HourlyGrid()
     jan1 = datetime.datetime(2022, 1, 1, 0, 0)
@@ -63,5 +65,3 @@ class HourlyGridTestCase(unittest.TestCase):
     self.assertEqual(grid.get_end(), datetime.datetime(2023, 12, 31, 23, 0, 0))
     self.assertEqual(grid.get_total_hours(), (24*365)+(24*365))
     self.assertEqual(grid.get_total_by_year(), {2022: (24*365), 2023: 24*365})
-
-

@@ -188,7 +188,7 @@ class WeatherStationTestCase(unittest.TestCase):
     a = WeatherStation('STATION')
     a.add_precipitation_mm(10, 60, dt)
     a.add_precipitation_mm(20, 60, dt2)
-    self.assertEqual(a.get_precipitation_mm('SUM'), 15)
+    self.assertEqual(a.get_precipitation_mm('SUM'), 20)
 
   def test_adding_three_hours_of_precip(self):
     dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
@@ -199,7 +199,7 @@ class WeatherStationTestCase(unittest.TestCase):
     a.add_precipitation_mm(20, 60, dt_one_hour_later)
     a.add_precipitation_mm(30, 60, dt_two_hours_later)
     self.assertEqual(a.get_precipitation_mm('SUM'), 50)
-    self.assertEqual(a.get_precipitation_mm('MEAN'), 16.67)
+    self.assertAlmostEqual(a.get_precipitation_mm('MEAN'), 16.666, 2)
 
   def test_putting_nans_and_nones_into_temperature_too(self):
     a = WeatherStation('STATION')
