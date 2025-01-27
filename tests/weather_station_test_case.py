@@ -391,11 +391,12 @@ class WeatherStationTestCase(unittest.TestCase):
     dt0 = datetime.datetime(2020, 1, 1, 0, 0, 0)
     total = 0 
     for i in range(0, 24):
-      a.add_precipitation_mm(i, 60, dt0 + datetime.timedelta(hours=i))
-      total += i
+      a.add_precipitation_mm(1, 60, dt0 + datetime.timedelta(hours=i))
+      total += 1 
     summary = a.serialize_summary()
     summary = json.loads(summary)
     self.assertEqual(summary['air']['precipitation']['sum'], total)
+    self.assertEqual(summary['air']['precipitation']['annual_mean'], 24)
 
   def test_serialize_summary_function(self):
     a = WeatherStation('BOUY')

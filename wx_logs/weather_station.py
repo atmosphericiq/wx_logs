@@ -544,6 +544,7 @@ class WeatherStation:
           'sum': self.get_precipitation_mm('SUM'),
           'min': self.get_precipitation_mm('MIN'),
           'max': self.get_precipitation_mm('MAX'),
+          'annual_mean': self.precip_grid.get_average_for_valid_years(),
           'yearly': self.precip_grid.get_total_by_year_detailed()
         },
         'wind': {

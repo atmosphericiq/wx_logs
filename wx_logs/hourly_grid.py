@@ -160,9 +160,12 @@ class HourlyGrid:
   # and then extrapolate the mm of rainfall
   def get_average_for_valid_years(self):
     totals_by_year = self.get_total_by_year_detailed()
+    if totals_by_year is None:
+      return None
+    totals = []
     for (year, data) in totals_by_year.items():
-      total += data['total']
-    return np.round(total / len(totals_by_year), self._precision)
+      totals.append(data['total'])
+    return np.round(np.mean(totals), self._precision)
   
   # {2022: {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0}
   # return a grid like that
