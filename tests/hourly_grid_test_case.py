@@ -104,3 +104,5 @@ class HourlyGridTestCase(unittest.TestCase):
     # {2022: {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0}, 2023: ...}
     example_2022 = {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0, 'count': 8760}
     self.assertEqual(grid.get_total_by_year_detailed()[2022], example_2022)
+
+    # also get an annual average over all the years that have enough records

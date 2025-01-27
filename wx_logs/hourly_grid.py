@@ -38,6 +38,7 @@ class HourlyGrid:
         self.hours[max_hour_in_hours] = self._default_value
       max_hour_in_hours += timedelta(hours=1)
 
+  # get the total number of hours in the grid
   def get_total_hours(self):
     return len(self.hours)
 
@@ -111,59 +112,41 @@ class HourlyGrid:
     # if its an int64, just make it an int
     if type(totaled) == np.int64:
       return int(totaled)
-
     return totaled
 
-  def get_mean(self, start=None, end=None):
+  def _prepare_metric(self, start=None, end=None):
     if self._is_empty:
       return None
     if len(self.hours) == 0:
       return None
-
-    # convert the nan/nulls to 0
     if start is None:
       hour_values = [v if v is not None else 0 for v in self.hours.values()]
     else:
       hour_values = [v if v is not None else 0 for h, v in self.hours.items() if h >= start and h <= end]
-
     if len(hour_values) == 0:
       return None
+    return hour_values
 
+  def get_mean(self, start=None, end=None):
+    hour_values = self._prepare_metric(start, end)
+    if hour_values is None:
+      return None
     return np.round(np.mean(hour_values), self._precision)
 
+  # return the min/max value in the grid (excluding NULL)
   def get_min(self, start=None, end=None):
-    if self._is_empty:
+    hour_values = self._prepare_metric(start, end)
+    if hour_values is None:
       return None
-    if len(self.hours) == 0:
-      return None
-    if start is None:
-      hour_values = [v if v is not None else 0 for v in self.hours.values()]
-    else:
-      hour_values = [v if v is not None else 0 for h, v in self.hours.items() if h >= start and h <= end]
-
-    if len(hour_values) == 0:
-      return None
-
     return np.round(np.min(hour_values), self._precision)
-
-
   def get_max(self, start=None, end=None):
-    if self._is_empty:
+    hour_values = self._prepare_metric(start, end)
+    if hour_values is None:
       return None
-    if len(self.hours) == 0:
-      return None
-    if start is None:
-      hour_values = [v for v in self.hours.values() if v is not None]
-    else:
-      hour_values = [v for h, v in self.hours.items() if h >= start and h <= end and v is not None]
-
-    if len(hour_values) == 0:
-      return None
-
     return np.round(np.max(hour_values), self._precision)
 
+  # create a dict of years and their totals
   def get_total_by_year(self):
-    # create a dict of years and the total for each year
     years = {}
     for hour, value in self.hours.items():
       year = hour.year
@@ -172,6 +155,15 @@ class HourlyGrid:
       years[year] += value
     return years
 
+  # for years where we have enough valid records then
+  # just like with time of wetness, we need to determine
+  # and then extrapolate the mm of rainfall
+  def get_average_for_valid_years(self):
+    totals_by_year = self.get_total_by_year_detailed()
+    for (year, data) in totals_by_year.items():
+      total += data['total']
+    return np.round(total / len(totals_by_year), self._precision)
+  
   # {2022: {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0}
   # return a grid like that
   def get_total_by_year_detailed(self):
