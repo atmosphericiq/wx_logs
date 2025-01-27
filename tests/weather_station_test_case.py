@@ -182,6 +182,14 @@ class WeatherStationTestCase(unittest.TestCase):
     a.add_precipitation_mm(20, 60, dt_one_hour_later)
     self.assertEqual(a.get_precipitation_mm('SUM'), 30)
 
+  def test_adding_two_with_same_hour(self):
+    dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
+    dt2 = datetime.datetime(2020, 1, 1, 0, 20, 0)
+    a = WeatherStation('STATION')
+    a.add_precipitation_mm(10, 60, dt)
+    a.add_precipitation_mm(20, 60, dt2)
+    self.assertEqual(a.get_precipitation_mm('SUM'), 15)
+
   def test_adding_three_hours_of_precip(self):
     dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
     dt_one_hour_later = datetime.datetime(2020, 1, 1, 1, 0, 0)
@@ -381,15 +389,11 @@ class WeatherStationTestCase(unittest.TestCase):
   def test_serialize_with_precipitation(self):
     a = WeatherStation('STATION')
     dt0 = datetime.datetime(2020, 1, 1, 0, 0, 0)
-
-    # iterate through 24 hours
     total = 0 
     for i in range(0, 24):
       a.add_precipitation_mm(i, 60, dt0 + datetime.timedelta(hours=i))
       total += i
-
     summary = json.loads(a.serialize_summary())
-
     self.assertEqual(summary['air']['precipitation']['sum'], total)
 
   def test_serialize_summary_function(self):

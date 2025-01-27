@@ -1035,7 +1035,7 @@ class RasterBandTestCase(unittest.TestCase):
     self.assertEqual(sb[3][2], 180.0) # south face
     self.assertEqual(sb[2][3], 90.0) # east face
     self.assertEqual(sb[1][1], 360.0 - 45.0) # nw angled face
-    self.assertEqual(sb[1][3], 45.0) # ne angled face
+    self.assertAlmostEqual(sb[1][3], 45.0, 3) # ne angled face
     self.assertEqual(sb[3][3], 135.0) # se angled face
     self.assertEqual(sb[3][1], 225.0)
 

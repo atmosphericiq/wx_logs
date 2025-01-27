@@ -324,7 +324,7 @@ class WeatherStation:
     return round(max([v[1] for v in values if v[1] is not None]), self._precision)
 
   def _sum(self, values):
-    return round(np.sum([float(v[1]) for v in values if v[1] is not None]), self._precision)
+    return round(sum([v[1] for v in values if v[1] is not None]), self._precision)
 
   def get_precipitation_mm(self, measure='SUM'):
     measure = measure.upper()

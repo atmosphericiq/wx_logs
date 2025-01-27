@@ -48,7 +48,7 @@ class RasterDistanceToVectorTestCase(unittest.TestCase):
     #pr.enable()
 
     b = RasterBand()
-    b.load_url('s3://public-images.engineeringdirector.com/dem/snowfall.2017.lowres.tif')
+    b.load_url('https://public-images.engineeringdirector.com/dem/snowfall.2017.lowres.tif')
     b.load_band(1)
 
     s = VectorLayer()
