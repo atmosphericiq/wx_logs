@@ -334,11 +334,17 @@ class WeatherStation:
   def _sum(self, values):
     return round(sum([v[1] for v in values if v[1] is not None]), self._precision)
 
+  # precip has to use a special data structure because of how reporting
+  # that comes in is hourly and we want to be able to report on it hourly
   def get_precipitation_mm(self, measure='SUM'):
     if measure == 'SUM':
       return self.precip_grid.get_total()
     elif measure == 'MEAN':
       return self.precip_grid.get_mean()
+    elif measure == 'MAX':
+      return self.precip_grid.get_max()
+    elif measure == 'MIN':
+      return self.precip_grid.get_min()
 
   def get_temp_c(self, measure='MEAN'):
     measure = measure.upper()

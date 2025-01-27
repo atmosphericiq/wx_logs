@@ -83,6 +83,11 @@ class HourlyGrid:
   def get_mean(self):
     return np.mean(list(self.hours.values()))
 
+  def get_min(self):
+    return min(self.hours.values())
+
+  def get_max(self):
+    return max(self.hours.values())
 
   def get_total_by_year(self):
     # create a dict of years and the total for each year
