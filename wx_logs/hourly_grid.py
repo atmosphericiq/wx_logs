@@ -28,10 +28,12 @@ class HourlyGrid:
       start_dt += timedelta(hours=1)
 
   # recalc only the bottom bc were appending
-  def _recalc_bottom(self):
-    max_hour_in_hours = max(self.hours.keys())
+  def _recalc_bottom(self, old_end):
+    max_hour_in_hours = old_end
     while max_hour_in_hours < self._end:
-      if max_hour_in_hours not in self.hours:
+      try:
+        self.hours[max_hour_in_hours]
+      except KeyError:
         self.hours[max_hour_in_hours] = self._default_value
       max_hour_in_hours += timedelta(hours=1)
 
@@ -56,13 +58,14 @@ class HourlyGrid:
       self._end = hour
       recalc = True
     elif dt > self._end:
-      self._end = hour
+      old_end = self._end
+      self._end = hour # set the new end
       recalc_bottom = True
 
     if recalc:
       self._recalc()
     if recalc_bottom:
-      self._recalc_bottom()
+      self._recalc_bottom(old_end) # calc only bottom of stack
 
   def get_start(self):
     return self._start
@@ -121,6 +124,10 @@ class HourlyGrid:
       hour_values = [v if v is not None else 0 for v in self.hours.values()]
     else:
       hour_values = [v if v is not None else 0 for h, v in self.hours.items() if h >= start and h <= end]
+
+    if len(hour_values) == 0:
+      return None
+
     return np.mean(hour_values)
 
   def get_min(self, start=None, end=None):
@@ -132,6 +139,10 @@ class HourlyGrid:
       hour_values = [v if v is not None else 0 for v in self.hours.values()]
     else:
       hour_values = [v if v is not None else 0 for h, v in self.hours.items() if h >= start and h <= end]
+
+    if len(hour_values) == 0:
+      return None
+
     return min(hour_values)
 
   def get_max(self, start=None, end=None):
@@ -143,6 +154,10 @@ class HourlyGrid:
       hour_values = [v for v in self.hours.values() if v is not None]
     else:
       hour_values = [v for h, v in self.hours.items() if h >= start and h <= end and v is not None]
+
+    if len(hour_values) == 0:
+      return None
+
     return max(hour_values)
 
   def get_total_by_year(self):
