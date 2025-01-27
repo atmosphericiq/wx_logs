@@ -13,6 +13,7 @@ class HourlyGrid:
     self._end = None
     self._default_value = default_value
     self._is_empty = True # is it all NULL values
+    self._precision = 4
 
   # recalculate hour grid
   # this is called when we change the start or end
@@ -128,7 +129,7 @@ class HourlyGrid:
     if len(hour_values) == 0:
       return None
 
-    return np.mean(hour_values)
+    return np.round(np.mean(hour_values), self._precision)
 
   def get_min(self, start=None, end=None):
     if self._is_empty:
@@ -143,7 +144,8 @@ class HourlyGrid:
     if len(hour_values) == 0:
       return None
 
-    return min(hour_values)
+    return np.round(np.min(hour_values), self._precision)
+
 
   def get_max(self, start=None, end=None):
     if self._is_empty:
@@ -158,7 +160,7 @@ class HourlyGrid:
     if len(hour_values) == 0:
       return None
 
-    return max(hour_values)
+    return np.round(np.max(hour_values), self._precision)
 
   def get_total_by_year(self):
     # create a dict of years and the total for each year

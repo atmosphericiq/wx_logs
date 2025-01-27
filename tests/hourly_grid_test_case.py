@@ -73,7 +73,7 @@ class HourlyGridTestCase(unittest.TestCase):
     self.assertEqual(grid.get_total(), total)
     self.assertEqual(grid.get_total_by_year(), {2022: total})
 
-    self.assertEqual(grid.get_mean(), total / (24*365))
+    self.assertAlmostEqual(grid.get_mean(), total / (24*365), 2)
     self.assertEqual(grid.get_min(), 0.0)
     self.assertEqual(grid.get_max(), 10.0)
 
