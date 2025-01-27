@@ -543,7 +543,8 @@ class WeatherStation:
           'full_year': self.is_full_year_of_data('precipitation'),
           'sum': self.get_precipitation_mm('SUM'),
           'min': self.get_precipitation_mm('MIN'),
-          'max': self.get_precipitation_mm('MAX')
+          'max': self.get_precipitation_mm('MAX'),
+          'yearly': self.precip_grid.get_total_by_year_detailed()
         },
         'wind': {
           'speed': {
@@ -595,6 +596,12 @@ class WeatherStation:
     if self.tow is not None:
       payload['air']['time_of_wetness'] = self.tow.get_averages()
       payload['air']['time_of_wetness']['by_year'] = self.tow.get_years()
+
+    # confirm we can dump to JSON
+    try:
+      json.dumps(payload)
+    except Exception as e:
+      raise ValueError(f"Cannot serialize to JSON: {e}. Payload: {payload}")
 
     return json.dumps(payload)
 

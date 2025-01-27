@@ -393,7 +393,8 @@ class WeatherStationTestCase(unittest.TestCase):
     for i in range(0, 24):
       a.add_precipitation_mm(i, 60, dt0 + datetime.timedelta(hours=i))
       total += i
-    summary = json.loads(a.serialize_summary())
+    summary = a.serialize_summary()
+    summary = json.loads(summary)
     self.assertEqual(summary['air']['precipitation']['sum'], total)
 
   def test_serialize_summary_function(self):

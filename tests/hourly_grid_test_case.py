@@ -77,6 +77,13 @@ class HourlyGridTestCase(unittest.TestCase):
     self.assertEqual(grid.get_min(), 0.0)
     self.assertEqual(grid.get_max(), 10.0)
 
+    # assert that nothing is an int64
+    self.assertIsInstance(grid.get_total(), float)
+    self.assertIsInstance(grid.get_mean(), float)
+    self.assertIsInstance(grid.get_min(), float)
+    self.assertIsInstance(grid.get_max(), float)
+    self.assertIsInstance(grid.get_total_by_year()[2022], float)
+
   def test_two_years(self):
     grid = HourlyGrid()
     jan1 = datetime.datetime(2022, 1, 1, 0, 0)
@@ -92,3 +99,8 @@ class HourlyGridTestCase(unittest.TestCase):
     self.assertEqual(grid.get_end(), datetime.datetime(2023, 12, 31, 23, 0, 0))
     self.assertEqual(grid.get_total_hours(), (24*365)+(24*365))
     self.assertEqual(grid.get_total_by_year(), {2022: (24*365), 2023: 24*365})
+
+    # also test get_total_by_year_detailed, which is a dict
+    # {2022: {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0}, 2023: ...}
+    example_2022 = {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0, 'count': 8760}
+    self.assertEqual(grid.get_total_by_year_detailed()[2022], example_2022)
