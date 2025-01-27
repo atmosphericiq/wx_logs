@@ -25,6 +25,21 @@ class HourlyGridTestCase(unittest.TestCase):
     self.assertEqual(grid.get_min(), None)
     self.assertEqual(grid.get_max(), None)
 
+  def test_one_good_and_one_none_measurement(self):
+    grid = HourlyGrid()
+    jan1 = datetime.datetime(2022, 1, 1)
+    grid.add(jan1, 1)
+    jan1_hour2 = jan1.replace(hour=1)
+    grid.add(jan1_hour2, None)
+
+    self.assertEqual(grid.get_start(), jan1)
+    self.assertEqual(grid.get_end(), jan1_hour2)
+    self.assertEqual(grid.get_total_hours(), 2)
+    self.assertEqual(grid.get_total(), 1.0) # usually none = 0
+    self.assertEqual(grid.get_mean(), 0.5)
+    self.assertEqual(grid.get_min(), 0)
+    self.assertEqual(grid.get_max(), 1.0)
+
   def test_two_measurements(self):
     jan1 = datetime.datetime(2022, 1, 1)
     jan2 = datetime.datetime(2022, 1, 2)

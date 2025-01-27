@@ -12,6 +12,7 @@ class HourlyGrid:
     self._start = None
     self._end = None
     self._default_value = default_value
+    self._is_empty = True # is it all NULL values
 
   # recalculate hour grid
   # this is called when we change the start or end
@@ -75,27 +76,43 @@ class HourlyGrid:
     hour = dt.replace(minute=0, second=0, microsecond=0)
     self._update_range(dt)
     self.hours[hour] = value
+    if value is not None:
+      self._is_empty = False
 
   # sum up all the values in the hourly grid
   def get_total(self):
+    if self._is_empty:
+      return None
     if len(self.hours) == 0:
       return None
-    return sum(self.hours.values())
+    hour_values = [v for v in self.hours.values() if v is not None]
+    return np.sum(hour_values)
 
   def get_mean(self):
+    if self._is_empty:
+      return None
     if len(self.hours) == 0:
       return None
-    return np.mean(list(self.hours.values()))
+
+    # convert the nan/nulls to 0
+    hour_values = [v if v is not None else 0 for v in self.hours.values()]
+    return np.mean(hour_values)
 
   def get_min(self):
+    if self._is_empty:
+      return None
     if len(self.hours) == 0:
       return None
-    return min(self.hours.values())
+    hour_values = [v if v is not None else 0 for v in self.hours.values()]
+    return min(hour_values)
 
   def get_max(self):
+    if self._is_empty:
+      return None
     if len(self.hours) == 0:
       return None
-    return max(self.hours.values())
+    hour_values = [v for v in self.hours.values() if v is not None]
+    return max(hour_values)
 
   def get_total_by_year(self):
     # create a dict of years and the total for each year
