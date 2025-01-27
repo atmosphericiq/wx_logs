@@ -78,15 +78,23 @@ class HourlyGrid:
 
   # sum up all the values in the hourly grid
   def get_total(self):
+    if len(self.hours) == 0:
+      return None
     return sum(self.hours.values())
 
   def get_mean(self):
+    if len(self.hours) == 0:
+      return None
     return np.mean(list(self.hours.values()))
 
   def get_min(self):
+    if len(self.hours) == 0:
+      return None
     return min(self.hours.values())
 
   def get_max(self):
+    if len(self.hours) == 0:
+      return None
     return max(self.hours.values())
 
   def get_total_by_year(self):
