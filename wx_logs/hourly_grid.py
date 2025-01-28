@@ -181,9 +181,9 @@ class HourlyGrid:
       total = self.get_total(range_start, range_end)
       result[start_year] = {
         'total': total,
-        'min': float(self.get_min(range_start, range_end)),
-        'max': float(self.get_max(range_start, range_end)),
-        'mean': float(self.get_mean(range_start, range_end)),
+        'min': self.get_min(range_start, range_end),
+        'max': self.get_max(range_start, range_end),
+        'mean': self.get_mean(range_start, range_end),
         'count': self.get_count(range_start, range_end)
       }
       start_year += 1
