@@ -138,12 +138,17 @@ class HourlyGrid:
     hour_values = self._prepare_metric(start, end)
     if hour_values is None:
       return None
-    return np.round(np.min(hour_values), self._precision)
+    min_value = np.round(np.min(hour_values), self._precision)
+    if type(min_value) == np.int64:
+      return float(min_value)
+  
   def get_max(self, start=None, end=None):
     hour_values = self._prepare_metric(start, end)
     if hour_values is None:
       return None
-    return np.round(np.max(hour_values), self._precision)
+    max_value = np.round(np.max(hour_values), self._precision)
+    if type(max_value) == np.int64:
+      return float(max_value)
 
   # create a dict of years and their totals
   def get_total_by_year(self):
