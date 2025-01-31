@@ -1,1 +1,1 @@
-from wx_logs import wx_logs
+from .weather_station import WeatherStation

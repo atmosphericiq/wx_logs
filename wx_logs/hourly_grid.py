@@ -1,7 +1,3 @@
-# hourly grid - this allows us to 
-# store a value that is hourly in nature, like
-# preciptation, and then use it to calculate
-# the totals over periods of time
 from datetime import datetime, timedelta
 import numpy as np
 
@@ -86,14 +82,14 @@ class HourlyGrid:
     if value is not None:
       self._is_empty = False
 
-  # return a simple count of elements
+  # return a simple count of non-null elements
   def get_count(self, start=None, end=None):
     if self._is_empty:
       return None
     if len(self.hours) == 0:
       return None
     if start is None:
-      return len(self.hours.values())
+      return len([v for v in self.hours.values() if v is not None])
     else:
       return len([v for h, v in self.hours.items() if h >= start and h <= end and v is not None])
 
@@ -120,9 +116,9 @@ class HourlyGrid:
     if len(self.hours) == 0:
       return None
     if start is None:
-      hour_values = [v if v is not None else 0 for v in self.hours.values()]
+      hour_values = [v for v in self.hours.values() if v is not None]
     else:
-      hour_values = [v if v is not None else 0 for h, v in self.hours.items() if h >= start and h <= end]
+      hour_values = [v for h, v in self.hours.items() if h >= start and h <= end and v is not None]
     if len(hour_values) == 0:
       return None
     return hour_values
@@ -137,27 +133,30 @@ class HourlyGrid:
   def get_min(self, start=None, end=None):
     hour_values = self._prepare_metric(start, end)
     if hour_values is None:
-      return None
+      return 0.0  # Default to 0 if no non-null values above zero exist
     min_value = np.round(np.min(hour_values), self._precision)
     if type(min_value) == np.int64:
       return float(min_value)
-  
+    return min_value
+
   def get_max(self, start=None, end=None):
     hour_values = self._prepare_metric(start, end)
     if hour_values is None:
-      return None
+      return 0.0  # Default to 0 if no non-null values above zero exist
     max_value = np.round(np.max(hour_values), self._precision)
     if type(max_value) == np.int64:
       return float(max_value)
+    return max_value
 
   # create a dict of years and their totals
   def get_total_by_year(self):
     years = {}
     for hour, value in self.hours.items():
       year = hour.year
-      if year not in years:
-        years[year] = 0
-      years[year] += value
+      if value is not None:  # Ensure we only sum non-null values
+        if year not in years:
+          years[year] = 0
+        years[year] += value
     return years
 
   # for years where we have enough valid records then
@@ -193,3 +192,5 @@ class HourlyGrid:
       }
       start_year += 1
     return result
+
+

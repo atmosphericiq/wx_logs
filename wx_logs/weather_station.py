@@ -338,13 +338,17 @@ class WeatherStation:
   # that comes in is hourly and we want to be able to report on it hourly
   def get_precipitation_mm(self, measure='SUM'):
     if measure == 'SUM':
-      return self.precip_grid.get_total()
+        value = self.precip_grid.get_total()
     elif measure == 'MEAN':
-      return self.precip_grid.get_mean()
+        value = self.precip_grid.get_mean()
     elif measure == 'MAX':
-      return self.precip_grid.get_max()
+        value = self.precip_grid.get_max()
     elif measure == 'MIN':
-      return self.precip_grid.get_min()
+        value = self.precip_grid.get_min()
+    else:
+        raise ValueError(f"Invalid measure: {measure}")
+    return value if value is not None else 0
+
 
   def get_temp_c(self, measure='MEAN'):
     measure = measure.upper()
