@@ -1,28 +1,16 @@
-import unittest
-import os
-import numpy as np
-import json
-import pytz
-import datetime
-from wx_logs.weather_station import WeatherStation
+def test_zero_null_real_precipitation_values(self):
+    a = WeatherStation('STATION')
+    dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
+    # Add a mix of 0, None, and real values
+    a.add_precipitation_mm(10, 60, dt)
+    a.add_precipitation_mm(0, 60, dt + datetime.timedelta(hours=1))
+    a.add_precipitation_mm(None, 60, dt + datetime.timedelta(hours=2))
+    a.add_precipitation_mm(5, 60, dt + datetime.timedelta(hours=3))
+    a.add_precipitation_mm('', 60, dt + datetime.timedelta(hours=4))
+    a.add_precipitation_mm(np.nan, 60, dt + datetime.timedelta(hours=5))
 
-class WeatherStationTestCase(unittest.TestCase):
-    # ... existing test cases ...
+    # Expected total is 15 (10 + 0 + 5 + 0 + 0)
+    self.assertEqual(a.get_precipitation_mm('SUM'), 15)
 
-    def test_adding_null_precipitation(self):
-        a = WeatherStation('STATION')
-        dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
-        a.add_precipitation_mm(None, 60, dt)
-        self.assertEqual(a.get_precipitation_mm('SUM'), 0)
-
-    def test_adding_empty_precipitation(self):
-        a = WeatherStation('STATION')
-        dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
-        a.add_precipitation_mm("", 60, dt)
-        self.assertEqual(a.get_precipitation_mm('SUM'), 0)
-
-    def test_adding_nan_precipitation(self):
-        a = WeatherStation('STATION')
-        dt = datetime.datetime(2020, 1, 1, 0, 0, 0)
-        a.add_precipitation_mm(np.nan, 60, dt)
-        self.assertEqual(a.get_precipitation_mm('SUM'), 0)
+    # Expected mean is (10 + 0 + 5)/5 due to valid hours
+    self.assertAlmostEqual(a.get_precipitation_mm('MEAN'), 3.0, places=1)
