@@ -1,0 +1,14 @@
+# Project
+wx_logs is a python package designed for processing large amounts of weather or climate data that comes in as point data. From there, we can do a lot of processing to it. 
+
+# Running tests
+
+To run tests, you can use python unittest
+
+```py
+python -m unittest tests
+```
+
+Or you can go to the specific file
+
+
