@@ -9,6 +9,9 @@ import numpy as np
 from shapely.strtree import STRtree
 from shapely.geometry import Point
 from shapely import wkt, wkb
+import warnings
+# Suppress specific warning from pyproj
+warnings.filterwarnings('ignore', category=UserWarning, module='pyproj')
 from pyproj import CRS
 from osgeo import ogr, osr
 from .file_storage import FileStorage

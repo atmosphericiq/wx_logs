@@ -6,6 +6,9 @@
 
 import json
 import dateparser
+import warnings
+# Suppress specific warning from pyproj
+warnings.filterwarnings("ignore", category=UserWarning, module='pyproj')
 import numpy as np
 import math
 import joblib

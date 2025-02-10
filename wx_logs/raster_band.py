@@ -2,6 +2,9 @@ import logging
 import datetime
 import os
 import numpy as np
+import warnings
+# Suppress specific warning from pyproj
+warnings.filterwarnings('ignore', category=UserWarning, module='pyproj')
 from pyproj import CRS
 from osgeo import gdal, ogr, osr
 from .file_storage import FileStorage
