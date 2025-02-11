@@ -191,7 +191,10 @@ class HourlyGrid:
       return None
     totals = []
     for (year, data) in totals_by_year.items():
-      totals.append(data['total_mm'])
+      if data['count'] / 8760 > 0.8: # threshold
+        totals.append(data['estimated_total_mm'])
+    if len(totals) == 0:
+      return None
     return np.round(np.mean(totals), self._precision)
   
   # {2022: {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0}

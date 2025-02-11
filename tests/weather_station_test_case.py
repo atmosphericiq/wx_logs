@@ -396,7 +396,7 @@ class WeatherStationTestCase(unittest.TestCase):
     summary = a.serialize_summary()
     summary = json.loads(summary)
     self.assertEqual(summary['air']['precipitation']['sum'], total)
-    self.assertEqual(summary['air']['precipitation']['annual_mean'], 24)
+    self.assertEqual(summary['air']['precipitation']['annual_mean'], None)
 
   def test_serialize_summary_function(self):
     a = WeatherStation('BOUY')
