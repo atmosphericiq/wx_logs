@@ -5,11 +5,13 @@ class HourlyGrid:
 
   def __init__(self, default_value=None):
     self.hours = {} # dict keyed by the hour value
+    self.report_count = {}
     self._start = None
     self._end = None
     self._default_value = default_value
     self._is_empty = True # is it all NULL values
     self._precision = 4
+    self._number_of_reports = 0
 
   # recalculate hour grid
   # this is called when we change the start or end
@@ -22,6 +24,7 @@ class HourlyGrid:
       hour = start_dt
       if hour not in self.hours:
         self.hours[hour] = self._default_value
+        self.report_count[hour] = 0
       start_dt += timedelta(hours=1)
 
   # recalc only the bottom bc were appending
@@ -32,6 +35,7 @@ class HourlyGrid:
         self.hours[max_hour_in_hours]
       except KeyError:
         self.hours[max_hour_in_hours] = self._default_value
+        self.report_count[max_hour_in_hours] = 0
       max_hour_in_hours += timedelta(hours=1)
 
   # get the total number of hours in the grid
@@ -79,8 +83,27 @@ class HourlyGrid:
     if value is not None:
       value = float(value)
     self.hours[hour] = value
+    try:
+      self.report_count[hour] 
+    except Exception:
+      self.report_count[hour] = 0
+    self.report_count[hour] += 1
+
     if value is not None:
       self._is_empty = False
+    self._number_of_reports += 1
+
+  # reported count returns sum of hours_count instead of parsing hours
+  # so we get the number of reports for th year
+  def get_reported_count(self, start=None, end=None):
+    if self._is_empty:
+      return None
+    if len(self.hours) == 0:
+      return None
+    if start is None:
+      return sum([v for v in self.report_count.values()])
+    else:
+      return sum([v for h, v in self.report_count.items() if h >= start and h <= end])
 
   # return a simple count of non-null elements
   def get_count(self, start=None, end=None):
@@ -183,14 +206,30 @@ class HourlyGrid:
       range_start = datetime(start_year, 1, 1)
       range_end = datetime(start_year, 12, 31, 23)
       total = self.get_total(range_start, range_end)
+      count = self.get_count(range_start, range_end)
+      reported_count = self.get_reported_count(range_start, range_end)
+      
+      # Determine hours in the year: 8760 or 8784 for leap years
+      hours_in_year = 8784 if (start_year % 4 == 0 and (start_year % 100 != 0 or start_year % 400 == 0)) else 8760
+      
+      # Calculate estimated total
+      if count is None or count <= 0:
+        estimated_total = 0
+      else:
+        estimated_total = total * hours_in_year / count
+
       result[start_year] = {
         'total': total,
         'min': self.get_min(range_start, range_end),
         'max': self.get_max(range_start, range_end),
         'mean': self.get_mean(range_start, range_end),
-        'count': self.get_count(range_start, range_end)
+        'count': count,
+        'reported_count': reported_count,
+        'estimated_total': estimated_total
       }
       start_year += 1
     return result
 
-
+  # return the number of reports
+  def get_number_reports(self):
+    return self._number_of_reports

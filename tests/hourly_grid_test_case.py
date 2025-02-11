@@ -103,7 +103,9 @@ class HourlyGridTestCase(unittest.TestCase):
 
     # also test get_total_by_year_detailed, which is a dict
     # {2022: {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0}, 2023: ...}
-    example_2022 = {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0, 'count': 8760}
+    example_2022 = {'total': 8760, 'mean': 1.0, 'min': 1.0, 
+      'max': 1.0, 'count': 8760, 'estimated_total': 8760,
+      'reported_count': 8760}
     self.assertEqual(grid.get_total_by_year_detailed()[2022], example_2022)
 
     # also get an annual average over all the years that have enough records
@@ -196,31 +198,92 @@ class HourlyGridTestCase(unittest.TestCase):
       self.assertEqual(grid.get_min(), 5)
       self.assertEqual(grid.get_max(), 10)
 
+  # test the different hours conditions
+  # total hours in year = 8760
+  # get_number_reports = number of reports (since hour can have >1 report)
+  # get_total_hours = number of hours with a reported value
   def test_extrapolation_precipitation(self):
       grid = HourlyGrid()
       start = datetime.datetime(2022, 1, 1, 0, 0)
 
       # Add 10 hours of zero precipitation
       for i in range(10):
-          grid.add(start + timedelta(hours=i), 0)
+        grid.add(start + timedelta(hours=i), 0)
 
       # Add 10 hours of None
       for i in range(10, 20):
-          grid.add(start + timedelta(hours=i), None)
+        grid.add(start + timedelta(hours=i), None)
 
       # Add 10 hours of precipitation
       for i in range(20, 30):
-          grid.add(start + timedelta(hours=i), 5)
-
-      # Calculate an extrapolated value
-      # Assuming an extrapolate method is implemented similar to TOWCalculator
-      # Here we're just checking the structure
+        grid.add(start + timedelta(hours=i), 5)
 
       self.assertEqual(grid.get_total(), 50)  # Total precip
-      self.assertEqual(grid.get_total_hours(), 20)  # Total valid hours
-      # Just for example: extrapolated total assuming rest of hours follow the pattern
-      # Here we expect the extrapolated total based only on valid hours
-      # self.assertEqual(grid.extrapolated_total(), expected_value)
-      # Currently, the method details of extrapolation are not implemented, but structure is ready
+      self.assertEqual(grid.get_total_hours(), 30)  # Total valid hours
+      self.assertEqual(grid.get_number_reports(), 30)  # Total reports
 
-      print("Preciptation extrapolation test added.")
+  # okay now make one that submits a value every hour twice
+  def test_extrapolation_temperature(self):
+      grid = HourlyGrid()
+      start = datetime.datetime(2022, 1, 1, 0, 0)
+
+      # Add 10 hours of 0 degrees
+      for i in range(10):
+        grid.add(start + timedelta(hours=i), 0)
+
+      # Add 10 hours of None
+      for i in range(10, 20):
+        grid.add(start + timedelta(hours=i), None)
+
+      # Add 10 hours of 5 degrees
+      for i in range(0, 10):
+        grid.add(start + timedelta(hours=i), 5)
+
+      self.assertEqual(grid.get_total(), 50)  # Total temperature
+      self.assertEqual(grid.get_total_hours(), 20)  # Total valid hours
+      self.assertEqual(grid.get_number_reports(), 30)  # Total reports
+
+  # test the total number of reports per year, basically do the above
+  # but for a full year
+  def test_report_per_year_in_detailed(self):
+      grid = HourlyGrid()
+      start = datetime.datetime(2022, 1, 1, 0, 0)
+
+      # Add 10 hours of zero precipitation
+      for i in range(10):
+        grid.add(start + timedelta(hours=i), 0)
+
+      # Add 10 hours of None
+      for i in range(10, 20):
+        grid.add(start + timedelta(hours=i), None)
+
+      # Add 10 hours of precipitation
+      for i in range(20, 30):
+        grid.add(start + timedelta(hours=i), 5)
+
+      # Add 10 hours of zero precipitation
+      for i in range(30, 40):
+        grid.add(start + timedelta(hours=i), 0)
+
+      # Add 10 hours of None
+      for i in range(40, 50):
+        grid.add(start + timedelta(hours=i), None)
+
+      # Add 10 hours of precipitation = 50mm
+      for i in range(40, 50):
+        grid.add(start + timedelta(hours=i), 5)
+
+      self.assertEqual(grid.get_total_by_year(), {2022: 100})
+      detailed = grid.get_total_by_year_detailed()[2022]
+
+      # check number_reports is 60
+      self.assertEqual(grid.get_number_reports(), 60)
+
+      # check again for 2022
+      self.assertEqual(detailed['min'], 0.0)
+      self.assertEqual(detailed['max'], 5.0)
+      self.assertEqual(detailed['count'], 40) # because of nulls
+      self.assertEqual(detailed['reported_count'], 60)
+
+      # total should be 50, since we have 50 hours of precipitation
+      self.assertEqual(detailed['total'], 100)

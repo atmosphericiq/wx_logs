@@ -1,8 +1,7 @@
 # Project
-wx_logs is a python package designed for processing large amounts of weather or climate data that comes in as point data. From there, we can do a lot of processing to it. 
+wx_logs is a python package designed for processing large amounts of weather or climate data that comes in as point data. From there, we can do a lot of processing to it.  See README.md for more details.
 
 # Running tests
-
 To run tests, you can use python unittest
 
 ```py
@@ -11,4 +10,14 @@ python -m unittest tests
 
 Or you can go to the specific file
 
+# git preferences
+- Never commit unless you get the user's permission
+- Commit messages look like this: "[topic] description" and then any additional information below that line
+- Topic should a be something useful, not just "feature" or "ui"
 
+
+# style rules
+- Always use 2 space indentation
+- I prefer to close out } on same line instead of next line
+- try to keep length max 80 columns but not a hard rule. always keep <120
+- Put the comment for a function above the function using hash pound
