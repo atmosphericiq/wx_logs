@@ -103,8 +103,8 @@ class HourlyGridTestCase(unittest.TestCase):
 
     # also test get_total_by_year_detailed, which is a dict
     # {2022: {'total': 8760, 'mean': 1.0, 'min': 1.0, 'max': 1.0}, 2023: ...}
-    example_2022 = {'total': 8760, 'mean': 1.0, 'min': 1.0, 
-      'max': 1.0, 'count': 8760, 'estimated_total': 8760,
+    example_2022 = {'total_mm': 8760, 'mean_mm': 1.0, 'min_mm': 1.0, 
+      'max_mm': 1.0, 'count': 8760, 'estimated_total_mm': 8760,
       'reported_count': 8760}
     self.assertEqual(grid.get_total_by_year_detailed()[2022], example_2022)
 
@@ -132,10 +132,10 @@ class HourlyGridTestCase(unittest.TestCase):
 
     self.assertEqual(grid.get_total_by_year(), {2022: 0})
     detailed = grid.get_total_by_year_detailed()[2022]
-    self.assertEqual(detailed['total'], 0)
-    self.assertEqual(detailed['min'], 0.0)
-    self.assertEqual(detailed['max'], 0.0)
-    self.assertEqual(detailed['mean'], 0.0)
+    self.assertEqual(detailed['total_mm'], 0)
+    self.assertEqual(detailed['min_mm'], 0.0)
+    self.assertEqual(detailed['max_mm'], 0.0)
+    self.assertEqual(detailed['mean_mm'], 0.0)
     self.assertEqual(detailed['count'], 365)
 
   def test_include_zeros_exclude_nones(self):
@@ -280,10 +280,10 @@ class HourlyGridTestCase(unittest.TestCase):
       self.assertEqual(grid.get_number_reports(), 60)
 
       # check again for 2022
-      self.assertEqual(detailed['min'], 0.0)
-      self.assertEqual(detailed['max'], 5.0)
+      self.assertEqual(detailed['min_mm'], 0.0)
+      self.assertEqual(detailed['max_mm'], 5.0)
       self.assertEqual(detailed['count'], 40) # because of nulls
       self.assertEqual(detailed['reported_count'], 60)
 
       # total should be 50, since we have 50 hours of precipitation
-      self.assertEqual(detailed['total'], 100)
+      self.assertEqual(detailed['total_mm'], 100)

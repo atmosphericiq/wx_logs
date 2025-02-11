@@ -219,13 +219,13 @@ class HourlyGrid:
         estimated_total = total * hours_in_year / count
 
       result[start_year] = {
-        'total': total,
-        'min': self.get_min(range_start, range_end),
-        'max': self.get_max(range_start, range_end),
-        'mean': self.get_mean(range_start, range_end),
+        'total_mm': total,
+        'min_mm': self.get_min(range_start, range_end),
+        'max_mm': self.get_max(range_start, range_end),
+        'mean_mm': self.get_mean(range_start, range_end),
         'count': count,
         'reported_count': reported_count,
-        'estimated_total': estimated_total
+        'estimated_total_mm': estimated_total
       }
       start_year += 1
     return result
