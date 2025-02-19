@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 import numpy as np
 
+VALID_DATA_THRESHOLD = 0.8
+
 class HourlyGrid:
 
   def __init__(self, default_value=None):
@@ -230,7 +232,8 @@ class HourlyGrid:
         'mean_mm': self.get_mean(range_start, range_end),
         'count': count,
         'reported_count': reported_count,
-        'estimated_total_mm': estimated_total
+        'estimated_total_mm': estimated_total,
+        'qa_state': 'PASS' if count is not None and count / hours_in_year > VALID_DATA_THRESHOLD else 'FAIL'
       }
       start_year += 1
     return result

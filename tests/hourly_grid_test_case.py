@@ -287,3 +287,4 @@ class HourlyGridTestCase(unittest.TestCase):
 
       # total should be 50, since we have 50 hours of precipitation
       self.assertEqual(detailed['total_mm'], 100)
+      self.assertEqual(detailed['qa_state'], 'FAIL')
