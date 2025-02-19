@@ -191,6 +191,8 @@ class HourlyGrid:
       return None
     totals = []
     for (year, data) in totals_by_year.items():
+      if data['count'] == None: 
+        continue
       if data['count'] / 8760 > 0.8: # threshold
         totals.append(data['estimated_total_mm'])
     if len(totals) == 0:

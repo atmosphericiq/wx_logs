@@ -17,7 +17,12 @@ Or you can go to the specific file
 
 
 # style rules
+- Imports should be grouped at the top of the file.
+- Use descriptive variable names with snake_case.
+- Use classes to organize code.
+- Consistently use blank lines to improve readability.
+
 - Always use 2 space indentation
-- I prefer to close out } on same line instead of next line
+
 - try to keep length max 80 columns but not a hard rule. always keep <120
 - Put the comment for a function above the function using hash pound
