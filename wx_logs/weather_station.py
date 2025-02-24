@@ -194,6 +194,8 @@ class WeatherStation:
   def add_precip_mm(self, value, number_mins, dt):
     dt = validate_dt_or_convert_to_datetime_obj(dt)
     value = should_value_be_none(value)
+    if value is not None and value < 0:
+      raise ValueError("Precipitation value cannot be negative.")
     payload = {
       'value': value,
       'number_mins': number_mins
