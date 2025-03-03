@@ -535,7 +535,23 @@ class RasterBandTestCase(unittest.TestCase):
 
     b = RasterBand()
     b.blank_raster(3, 3, (1, 1), (-1, 1))
-    b.load_band(1)
+    b.load_band(1, False) # not cached
+    b.add_row(0, row1)
+    b.add_row(1, row2)
+    b.add_row(2, row3)
+
+    self.assertEqual(b.get_projection_epsg(), None)
+    self.assertEqual(b.sum(), 45)
+    self.assertEqual(b.get_value(0, 0), 5)
+
+  def test_raster_band_adding_one_row_at_a_time_with_caching_on(self):
+    row1 = [1, 2, 3]
+    row2 = [4, 5, 6]
+    row3 = [7, 8, 9]
+
+    b = RasterBand()
+    b.blank_raster(3, 3, (1, 1), (-1, 1))
+    b.load_band(1, True)
     b.add_row(0, row1)
     b.add_row(1, row2)
     b.add_row(2, row3)

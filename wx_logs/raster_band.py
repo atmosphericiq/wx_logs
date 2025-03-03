@@ -29,6 +29,10 @@ class RasterBand:
     self._extent = None
     self._metadata = {}
 
+    # caching flag
+    self._cached = False
+    self._data = None
+
     # projection stuff 
     self._datum = None
     self._epsg_code = None
@@ -371,7 +375,7 @@ class RasterBand:
   def set_band(self, band_id):
     return self.load_band(band_id)
 
-  def load_band(self, band_id=1):
+  def load_band(self, band_id=1, cache=True):
     if band_id > self.band_count():
       raise ValueError(f"Invalid band id: {band_id}")
     self._band = self._tif.GetRasterBand(band_id)
@@ -396,9 +400,19 @@ class RasterBand:
       'max_x': self._x_origin + (self._cols * self._pixel_w),
       'max_y': self._y_origin}
 
+    # if caching set the data
+    if cache is True:
+      self._data = self._band.ReadAsArray()
+      self._cached = True
+
     # set any metadata from the field
     self._metadata = self._tif.GetMetadata()
 
+  def set_caching(self, caching=False):
+    self._cached = caching
+    if caching is True:
+      self._data = self._band.ReadAsArray()
+  
   def get_metadata(self):
     return self._metadata
 
@@ -494,6 +508,10 @@ class RasterBand:
 
     # then replace the existing data with this new data
     self._band.WriteArray(row_data, 0, row_number)
+
+    # if caching is on then we need to add to the live cached dataset
+    if self._cached is True:
+      self._data[row_number] = row_data
 
   # return two lists of arrays
   # x coordinates and y coordinates
@@ -673,14 +691,23 @@ class RasterBand:
   # note the values shape is rows + cols
   def values(self):
     self._throw_except_if_band_not_loaded()
-    data = self._band.ReadAsArray()
-    data = np.where(data == self._nodata, np.nan, data)
+
+    # return cached version if available
+    if self._data is not None:
+      data = self._data
+    else:
+      data = self._band.ReadAsArray()
+
+    if self._nodata is not None:
+      data = np.where(data == self._nodata, np.nan, data)
+
     return data
 
   # sum all the values in the array
   def sum(self):
     self._throw_except_if_band_not_loaded()
-    return np.nansum(self.values())
+    data = self.values()
+    return np.nansum(data)
 
   def gradients(self):
     self._throw_except_if_band_not_loaded()
@@ -767,6 +794,10 @@ class RasterBand:
     col = int(np.floor((x - self._x_origin) / self._pixel_w))
     return row, col
 
+  def is_inside_bbox(self, x, y):
+    return (self._extent["min_x"] <= x <= self._extent["max_x"]
+      and self._extent["min_y"] <= y <= self._extent["max_y"])
+
   # retrieve a single value at a location
   # the x,y values are in the coordinate system of the raster
   def get_value(self, x, y):
@@ -777,14 +808,20 @@ class RasterBand:
 
     # get the bbox and determine if the point is inside of it
     # by using gdal functions + intersection
-    bbox_polygon = self.get_bbox_polygon()
-    if not bbox_polygon.Contains(point):
+    #bbox_polygon = self.get_bbox_polygon()
+    #if not bbox_polygon.Contains(point):
+    if not self.is_inside_bbox(x, y):
       raise ValueError(f"Point outside raster: {x}, {y}")
 
     # now we need to figure out which row and column we are in
     # make sure to consider resolution and negative y axis
     row, col = self._map_xy_to_rowcol(x, y)
-    data = self._band.ReadAsArray(col, row, 1, 1).tolist()[0][0]
+
+    # if the map is cached, then use the cached version instead of disk
+    if self._data is not None:
+      data = self._data[row][col]
+    else:
+      data = self._band.ReadAsArray(col, row, 1, 1).tolist()[0][0]
 
     if data == self._nodata:
       return None
