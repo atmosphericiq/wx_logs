@@ -12,9 +12,10 @@ HOURS_PER_YEAR = 8760
 # number of hours per year with RH > 80% and T > 0
 class TOWCalculator:
 
-  def __init__(self, precision=4):
+  def __init__(self, precision=4, threshold=0.75):
     self._data = {}
     self._precision = precision
+    self._threshold = threshold
 
   def _validate_dt(self, dt):
     if not isinstance(dt, datetime.datetime):
@@ -72,7 +73,7 @@ class TOWCalculator:
         if mean_t > TOW_T_THRESHOLD and mean_rh > TOW_RH_THRESHOLD:
           tow_hours += 1
       percent_valid = round(float(total_hours) / float(max_hours), self._precision)
-      qa_state = 'PASS' if percent_valid > 0.75 else 'FAIL'
+      qa_state = 'PASS' if percent_valid > self._threshold else 'FAIL'
       if qa_state == 'PASS':
         projected_tow = self.project_tow(total_hours, max_hours, tow_hours)
       else:

@@ -69,9 +69,9 @@ class WeatherStation:
   # if we enable the tow calculator then when we add
   # temperature or humidity values, we also put into
   # the TOW object
-  def enable_time_of_wetness(self):
+  def enable_time_of_wetness(self, threshold=0.75):
     if self.tow is None: # don't overwrite
-      self.tow = TOWCalculator()
+      self.tow = TOWCalculator(threshold=threshold)
 
   def get_type(self):
     return self._reading_type
