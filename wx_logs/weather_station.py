@@ -164,6 +164,10 @@ class WeatherStation:
     rh = self._dewpoint_to_relative_humidity(air_temp_c, dewpoint_c)
     self.air_dewpoint_c_values[dt] = dewpoint_c
     self.air_humidity_values[dt] = rh
+    
+    # if we have a TOW object, then add the calculated humidity
+    if self.tow is not None and rh is not None:
+      self.tow.add_humidity(rh, dt)
 
   def add_temp_c(self, value, dt):
     value = should_value_be_none(value)
