@@ -7,7 +7,6 @@ import unittest
 import datetime
 from wx_logs.weather_station import WeatherStation
 
-
 class WeatherStationTOWTestCase(unittest.TestCase):
 
   def test_single_year_with_mixed_conditions(self):
@@ -215,6 +214,3 @@ class WeatherStationTOWTestCase(unittest.TestCase):
     data_2020 = years[2020]
     self.assertEqual(data_2020['time_of_wetness_actual'], 1)
 
-
-if __name__ == '__main__':
-  unittest.main()
