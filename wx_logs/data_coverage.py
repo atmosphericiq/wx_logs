@@ -1,40 +1,23 @@
-# data_coverage.py
-# A module for analyzing temporal coverage of weather data
-# to determine if we have approximately a year's worth of data
-# Author: Tom Hayden
-
 import datetime
 import logging
 from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
+# Analyzes temporal coverage of weather data to determine if we have
+# approximately a year's worth of data distributed across time periods.
 class YearCoverageAnalyzer:
-  """
-  Analyzes temporal coverage of weather data to determine if we have
-  approximately a year's worth of data distributed across time periods.
-  """
   
   def __init__(self, adequate_threshold=75.0):
-    """
-    Initialize the analyzer with configurable thresholds.
-    
-    Args:
-      adequate_threshold: Minimum percentage for "adequate" coverage (default 75%)
-    """
     self.adequate_threshold = adequate_threshold
   
+  # Analyze temporal coverage for a list of datetime objects.
+  # Args:
+  #   datetime_list: List of datetime objects representing measurements
+  #   year: Specific year to analyze (if None, uses the most common year)
+  # Returns:
+  #   Dict with coverage analysis results
   def analyze_coverage(self, datetime_list, year=None):
-    """
-    Analyze temporal coverage for a list of datetime objects.
-    
-    Args:
-      datetime_list: List of datetime objects representing measurements
-      year: Specific year to analyze (if None, uses the most common year)
-    
-    Returns:
-      Dict with coverage analysis results
-    """
     if not datetime_list:
       return {
         'overall_score': 0.0,
@@ -99,7 +82,6 @@ class YearCoverageAnalyzer:
     }
   
   def _empty_result(self, year):
-    """Return empty result structure"""
     return {
       'overall_score': 0.0,
       'seasonal_coverage': 0.0,
@@ -114,8 +96,8 @@ class YearCoverageAnalyzer:
     }
   
   def _calculate_seasonal_coverage(self, year_data):
-    """Calculate number of days with data in each season"""
-    seasonal_days = {'spring': set(), 'summer': set(), 'fall': set(), 'winter': set()}
+    seasonal_days = {'spring': set(), 'summer': set(), 
+      'fall': set(), 'winter': set()}
     
     for dt in year_data:
       season = self._get_season(dt.month)
@@ -124,7 +106,6 @@ class YearCoverageAnalyzer:
     return {season: len(days) for season, days in seasonal_days.items()}
   
   def _calculate_monthly_coverage(self, year_data):
-    """Calculate number of days with data in each month"""
     monthly_days = defaultdict(set)
     
     for dt in year_data:
@@ -133,7 +114,6 @@ class YearCoverageAnalyzer:
     return {month: len(days) for month, days in monthly_days.items()}
   
   def _get_season(self, month):
-    """Map month number to season"""
     if month in [3, 4, 5]:
       return 'spring'
     elif month in [6, 7, 8]:
@@ -144,7 +124,6 @@ class YearCoverageAnalyzer:
       return 'winter'
   
   def _calculate_largest_gap(self, year_data, year):
-    """Calculate the largest gap between measurements in days"""
     if len(year_data) < 2:
       return 0
     
@@ -157,10 +136,12 @@ class YearCoverageAnalyzer:
     
     return max_gap
   
+  # Score seasonal coverage based on how well distributed data
+  # is across seasons
   def _score_seasonal_coverage(self, seasonal_breakdown):
-    """Score seasonal coverage based on how well distributed data is across seasons"""
     # Expected days per season (approximate)
-    season_expectations = {'spring': 92, 'summer': 93, 'fall': 91, 'winter': 89}
+    season_expectations = {'spring': 92, 'summer': 93, 'fall': 91, 
+      'winter': 89}
     
     seasonal_scores = []
     for season, expected_days in season_expectations.items():
@@ -173,13 +154,13 @@ class YearCoverageAnalyzer:
     return sum(seasonal_scores) / len(seasonal_scores)
   
   def _score_monthly_coverage(self, monthly_breakdown):
-    """Score monthly coverage based on how many months have data"""
-    months_with_data = sum(1 for days in monthly_breakdown.values() if days > 0)
+    months_with_data = sum(1 for days in monthly_breakdown.values() 
+      if days > 0)
     return (months_with_data / 12.0) * 100.0
   
+  # Calculate overall coverage score considering multiple factors
   def _calculate_overall_score(self, days_with_data, seasonal_coverage, 
-                              monthly_coverage, largest_gap_days, year):
-    """Calculate overall coverage score considering multiple factors"""
+    monthly_coverage, largest_gap_days, year):
     # Base score from days covered in year
     is_leap_year = self._is_leap_year(year)
     total_days = 366 if is_leap_year else 365
@@ -189,7 +170,8 @@ class YearCoverageAnalyzer:
     # Penalty for large gaps (gaps > 60 days are concerning)
     gap_penalty = 0
     if largest_gap_days > 60:
-      gap_penalty = min(30, (largest_gap_days - 60) * 0.5)  # Up to 30 point penalty
+      # Up to 30 point penalty
+      gap_penalty = min(30, (largest_gap_days - 60) * 0.5)
     
     # Weighted combination of factors
     overall_score = (
@@ -201,5 +183,4 @@ class YearCoverageAnalyzer:
     return max(0.0, overall_score)  # Don't go below 0
   
   def _is_leap_year(self, year):
-    """Check if year is a leap year"""
     return year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
