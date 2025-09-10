@@ -6,11 +6,8 @@ TOW_RH_THRESHOLD = 80
 TOW_T_THRESHOLD = 0
 HOURS_PER_YEAR = 8760
 
-# this class is designed to calculate annual TOW (time of wetness)
-# for a given year which is the number of hours in a year that
-# the surface is wet. This is important for the calculation of
-# corrosion rates for metals.
-# number of hours per year with RH > 80% and T > 0
+# Calculates annual TOW (time of wetness) - number of hours per year
+# with RH > 80% and T > 0. Important for corrosion rate calculations.
 class TOWCalculator:
 
   def __init__(self, precision=4, threshold=0.75):
@@ -49,9 +46,7 @@ class TOWCalculator:
         max_hours += years[year]['max_hours']
         valid_years += 1
 
-    # ok now do the same projection we do below
     projected_tow = self.annualize(total_hours, tow_hours)
-
     return {'annual_time_of_wetness': projected_tow,
       'valid_years': valid_years}
 
@@ -73,7 +68,8 @@ class TOWCalculator:
         mean_rh = np.mean(rh_readings)
         if mean_t > TOW_T_THRESHOLD and mean_rh > TOW_RH_THRESHOLD:
           tow_hours += 1
-      percent_valid = round(float(total_hours) / float(max_hours), self._precision)
+      percent_valid = round(float(total_hours) / float(max_hours),
+        self._precision)
       qa_state = 'PASS' if percent_valid > self._threshold else 'FAIL'
       if qa_state == 'PASS':
         projected_tow = self.project_tow(total_hours, max_hours, tow_hours)
@@ -117,50 +113,35 @@ class TOWCalculator:
     (year, month, day, hour) = self._validate_dt(dt)
     self._data[year][(month, day, hour)]['rh'].append(rh)
 
-  # assess temporal coverage of TOW data for a specific year
+  # Analyze temporal coverage for TOW data using the new coverage analyzer.
+  # Args:
+  #   year: Specific year to analyze (if None, uses the most common year)
+  #   measurement_type: 'temperature' or 'humidity' to analyze coverage
+  # Returns:
+  #   Dict with coverage analysis results
   def assess_year_coverage(self, year=None, measurement_type='temperature'):
-    """
-    Analyze temporal coverage for TOW data using the new coverage analyzer.
-    
-    Args:
-      year: Specific year to analyze (if None, uses the most common year)
-      measurement_type: 'temperature' or 'humidity' to analyze coverage
-    
-    Returns:
-      Dict with coverage analysis results
-    """
     analyzer = YearCoverageAnalyzer()
-    
-    # Get datetime list for the measurement type
     datetime_list = self._get_tow_datetime_list(year, measurement_type)
-    
     return analyzer.analyze_coverage(datetime_list, year)
   
-  def has_adequate_year_coverage(self, year=None, measurement_type='temperature'):
-    """
-    Check if we have adequate year coverage for TOW data.
-    
-    Args:
-      year: Specific year to analyze
-      measurement_type: 'temperature' or 'humidity'
-    
-    Returns:
-      Boolean indicating if coverage is adequate
-    """
+  # Check if we have adequate year coverage for TOW data.
+  # Args:
+  #   year: Specific year to analyze
+  #   measurement_type: 'temperature' or 'humidity'
+  # Returns:
+  #   Boolean indicating if coverage is adequate
+  def has_adequate_year_coverage(self, year=None,
+    measurement_type='temperature'):
     coverage = self.assess_year_coverage(year, measurement_type)
     return coverage['adequate_coverage']
 
+  # Get list of datetime objects for TOW data for a specific measurement type.
+  # Args:
+  #   year: Year to extract data from (if None, uses all years)
+  #   measurement_type: 'temperature' or 'humidity'
+  # Returns:
+  #   List of datetime objects where measurements exist
   def _get_tow_datetime_list(self, year, measurement_type):
-    """
-    Get list of datetime objects for TOW data for a specific measurement type.
-    
-    Args:
-      year: Year to extract data from (if None, uses all years)
-      measurement_type: 'temperature' or 'humidity'
-    
-    Returns:
-      List of datetime objects where measurements exist
-    """
     datetime_list = []
     
     years_to_check = [year] if year else list(self._data.keys())
@@ -188,15 +169,11 @@ class TOWCalculator:
     
     return datetime_list
 
-  # enhanced get_years that includes the new coverage analysis
+  # Enhanced version of get_years() that includes temporal coverage analysis.
+  # Returns:
+  #   Dict with yearly data including both traditional QA and new coverage analysis
   def get_years_with_coverage(self):
-    """
-    Enhanced version of get_years() that includes temporal coverage analysis.
-    
-    Returns:
-      Dict with yearly data including both traditional QA and new coverage analysis
-    """
-    years_data = self.get_years()  # Get existing data
+    years_data = self.get_years()
     
     for year in years_data.keys():
       # Add coverage analysis for temperature and humidity
@@ -231,18 +208,16 @@ class TOWCalculator:
     
     return years_data
 
-  def _calculate_enhanced_qa_state(self, traditional_qa, temp_adequate, humidity_adequate):
-    """
-    Calculate enhanced QA state considering both traditional density and temporal coverage.
-    
-    Args:
-      traditional_qa: Traditional QA state ('PASS' or 'FAIL')
-      temp_adequate: Boolean for temperature coverage adequacy
-      humidity_adequate: Boolean for humidity coverage adequacy
-    
-    Returns:
-      Enhanced QA state string
-    """
+  # Calculate enhanced QA state considering both traditional density and
+  # temporal coverage.
+  # Args:
+  #   traditional_qa: Traditional QA state ('PASS' or 'FAIL')
+  #   temp_adequate: Boolean for temperature coverage adequacy
+  #   humidity_adequate: Boolean for humidity coverage adequacy
+  # Returns:
+  #   Enhanced QA state string
+  def _calculate_enhanced_qa_state(self, traditional_qa, temp_adequate,
+    humidity_adequate):
     if traditional_qa == 'FAIL':
       return 'FAIL_DENSITY'  # Failed due to insufficient data density
     elif not temp_adequate or not humidity_adequate:
