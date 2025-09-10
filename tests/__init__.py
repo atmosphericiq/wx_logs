@@ -1,5 +1,7 @@
 from .weather_station_test_case import WeatherStationTestCase
 from .weather_station_tow_test_case import WeatherStationTOWTestCase
+from .data_coverage_test_case import DataCoverageTestCase
+from .tow_coverage_test_case import TOWCoverageTestCase
 from .collection_test_case import CollectionTestCase
 from .file_storage_test_case import FileStorageTestCase
 from .raster_band_test_case import RasterBandTestCase

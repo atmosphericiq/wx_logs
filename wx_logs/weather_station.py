@@ -18,6 +18,7 @@ import pytz
 from .wind_rose import WindRose
 from .hourly_grid import HourlyGrid
 from .tow_calculator import TOWCalculator
+from .data_coverage import YearCoverageAnalyzer
 from .helpers import should_value_be_none, simple_confirm_value_in_range, \
     validate_dt_or_convert_to_datetime_obj
 
@@ -663,3 +664,69 @@ class WeatherStation:
         bearing += 360
       simple_confirm_value_in_range('bearing', bearing, 0, 360)
     self.wind_rose.add_wind_bearing(bearing, dt)
+
+  # assess temporal coverage of data for a specific measurement type
+  def assess_year_coverage(self, measurement_type='temperature', year=None):
+    """
+    Analyze temporal coverage for a specific measurement type.
+    
+    Args:
+      measurement_type: Type of measurement to analyze (temperature, wind, humidity, etc.)
+      year: Specific year to analyze (if None, uses the most common year)
+    
+    Returns:
+      Dict with coverage analysis results
+    """
+    analyzer = YearCoverageAnalyzer()
+    
+    # Get datetime list for the measurement type
+    datetime_list = self._get_datetime_list_for_measurement_type(measurement_type)
+    
+    return analyzer.analyze_coverage(datetime_list, year)
+  
+  def has_adequate_year_coverage(self, measurement_type='temperature', year=None):
+    """
+    Check if we have adequate year coverage for a specific measurement type.
+    
+    Args:
+      measurement_type: Type of measurement to analyze
+      year: Specific year to analyze
+    
+    Returns:
+      Boolean indicating if coverage is adequate
+    """
+    coverage = self.assess_year_coverage(measurement_type, year)
+    return coverage['adequate_coverage']
+  
+  def _get_datetime_list_for_measurement_type(self, measurement_type):
+    """
+    Get list of datetime objects for a specific measurement type.
+    
+    Args:
+      measurement_type: Type of measurement
+    
+    Returns:
+      List of datetime objects
+    """
+    measurement_type = measurement_type.lower()
+    
+    if measurement_type in ['temperature', 'temp', 'temp_c']:
+      return list(self.air_temp_c_values.keys())
+    elif measurement_type in ['humidity']:
+      return list(self.air_humidity_values.keys())
+    elif measurement_type in ['pressure', 'pressure_hpa']:
+      return list(self.air_pressure_hpa_values.keys())
+    elif measurement_type in ['wind']:
+      return list(self.wind_rose.get_wind_values().keys())
+    elif measurement_type in ['precipitation', 'precip']:
+      return list(self.precip_values.keys())
+    elif measurement_type in ['pm25', 'pm2.5']:
+      return list(self.pm_25_values.keys())
+    elif measurement_type in ['pm10']:
+      return list(self.pm_10_values.keys())
+    elif measurement_type in ['ozone', 'ozone_ppb']:
+      return list(self.ozone_ppb_values.keys())
+    elif measurement_type in ['so2']:
+      return list(self.so2_values.keys())
+    else:
+      raise ValueError(f"Unknown measurement type: {measurement_type}")
