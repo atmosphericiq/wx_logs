@@ -1,14 +1,7 @@
-# weather_station.py
-# A weather logging library
-# this is for processing and storing weather data
-# and generating summaries of the data
-# Author: Tom Hayden
-
 import json
 import dateparser
 import warnings
-# Suppress specific warning from pyproj
-warnings.filterwarnings("ignore", category=UserWarning, module='pyproj')
+warnings.filterwarnings('ignore', category=UserWarning, module='pyproj')
 import numpy as np
 import math
 import joblib
@@ -19,8 +12,8 @@ from .wind_rose import WindRose
 from .hourly_grid import HourlyGrid
 from .tow_calculator import TOWCalculator
 from .data_coverage import YearCoverageAnalyzer
-from .helpers import should_value_be_none, simple_confirm_value_in_range, \
-    validate_dt_or_convert_to_datetime_obj
+from .helpers import (should_value_be_none, simple_confirm_value_in_range,
+  validate_dt_or_convert_to_datetime_obj)
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +23,8 @@ class WeatherStation:
 
   def __init__(self, reading_type=None, precision=2):
     self._precision = precision
-    assert reading_type in self.VALID_TYPES, f"Invalid reading type: {reading_type}"
+    msg = f'Invalid reading type: {reading_type}'
+    assert reading_type in self.VALID_TYPES, msg
     self._reading_type = reading_type
 
     self.station_id = None
@@ -333,30 +327,34 @@ class WeatherStation:
       raise ValueError(f"Invalid datetime object: {dt}")
 
   def _mean(self, values):
-    return round(np.mean([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(np.mean(vals), self._precision)
 
   def _min(self, values):
-    return round(min([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(min(vals), self._precision)
 
   def _max(self, values):
-    return round(max([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(max(vals), self._precision)
 
   def _sum(self, values):
-    return round(sum([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(sum(vals), self._precision)
 
   # precip has to use a special data structure because of how reporting
   # that comes in is hourly and we want to be able to report on it hourly
   def get_precipitation_mm(self, measure='SUM'):
     if measure == 'SUM':
-        value = self.precip_grid.get_total()
+      value = self.precip_grid.get_total()
     elif measure == 'MEAN':
-        value = self.precip_grid.get_mean()
+      value = self.precip_grid.get_mean()
     elif measure == 'MAX':
-        value = self.precip_grid.get_max()
+      value = self.precip_grid.get_max()
     elif measure == 'MIN':
-        value = self.precip_grid.get_min()
+      value = self.precip_grid.get_min()
     else:
-        raise ValueError(f"Invalid measure: {measure}")
+      raise ValueError(f'Invalid measure: {measure}')
     return value if value is not None else 0
 
 
