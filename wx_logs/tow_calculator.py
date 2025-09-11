@@ -208,19 +208,20 @@ class TOWCalculator:
     
     return years_data
 
-  # Calculate enhanced QA state considering both traditional density and
-  # temporal coverage.
+  # Calculate QA state based on temporal coverage adequacy.
+  # DEPRECATED: The old density-based check (FAIL_DENSITY) has been removed
+  # in favor of coverage-only QA which is more meaningful for TOW calculations.
   # Args:
-  #   traditional_qa: Traditional QA state ('PASS' or 'FAIL')
+  #   traditional_qa: Traditional QA state ('PASS' or 'FAIL') - now ignored
   #   temp_adequate: Boolean for temperature coverage adequacy
   #   humidity_adequate: Boolean for humidity coverage adequacy
   # Returns:
-  #   Enhanced QA state string
+  #   QA state string: 'PASS' if both coverage checks pass, 'FAIL_COVERAGE' otherwise
   def _calculate_enhanced_qa_state(self, traditional_qa, temp_adequate,
     humidity_adequate):
-    if traditional_qa == 'FAIL':
-      return 'FAIL_DENSITY'  # Failed due to insufficient data density
-    elif not temp_adequate or not humidity_adequate:
-      return 'FAIL_COVERAGE'  # Failed due to poor temporal distribution
+    # Coverage-only QA: if we have adequate temporal distribution,
+    # we consider the year valid regardless of density
+    if temp_adequate and humidity_adequate:
+      return 'PASS'  # Passes coverage checks
     else:
-      return 'PASS'  # Passes both density and coverage checks
+      return 'FAIL_COVERAGE'  # Failed due to poor temporal distribution

@@ -24,6 +24,14 @@ Main package structure:
 - `README.md` - Project documentation
 - Other files: `.gitignore`, `notes.txt`, `release.sh`
 
+# Testing
+To run tests, easiest is to run the whole folder:
+```
+python -m unittest tests
+```
+
+If you make a new test, make sure to add it to the tests/__init__.py file so it gets run in that batch.
+
 # Usage Examples
 The wx_logs package is typically used in external scripts to process weather data. Here's a typical usage pattern:
 
