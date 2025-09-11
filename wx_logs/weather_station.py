@@ -1,7 +1,6 @@
 import json
 import dateparser
 import warnings
-warnings.filterwarnings('ignore', category=UserWarning, module='pyproj')
 import numpy as np
 import math
 import joblib
@@ -14,6 +13,8 @@ from .tow_calculator import TOWCalculator
 from .data_coverage import YearCoverageAnalyzer
 from .helpers import (should_value_be_none, simple_confirm_value_in_range,
   validate_dt_or_convert_to_datetime_obj)
+
+warnings.filterwarnings('ignore', category=UserWarning, module='pyproj')
 
 logger = logging.getLogger(__name__)
 
@@ -61,9 +62,6 @@ class WeatherStation:
     self.ozone_ppb_values = {}
     self.so2_values = {}
 
-  # if we enable the tow calculator then when we add
-  # temperature or humidity values, we also put into
-  # the TOW object
   def enable_time_of_wetness(self, threshold=0.75):
     if self.tow is None: # don't overwrite
       self.tow = TOWCalculator(threshold=threshold)
@@ -107,13 +105,13 @@ class WeatherStation:
 
   def set_qa_status(self, status):
     if status not in ['PASS', 'FAIL']:
-      raise ValueError(f"Invalid QA status: {status}")
+      raise ValueError(f'Invalid QA status: {status}')
     self.qa_status = status
 
   def set_on_error(self, on_error):
     on_error = on_error.upper()
     if on_error not in ['RAISE', 'IGNORE', 'FAIL_QA']:
-      raise ValueError(f"Invalid on_error: {on_error}")
+      raise ValueError(f'Invalid on_error: {on_error}')
     self.on_error = on_error
 
   def get_qa_status(self):
@@ -131,10 +129,10 @@ class WeatherStation:
     elif self.on_error == 'IGNORE':
       logger.warning(message)
     else:
-      raise ValueError(f"Invalid on_error: {self.on_error}")
+      raise ValueError(f'Invalid on_error: {self.on_error}')
 
   def _dewpoint_to_relative_humidity(self, temp_c, dewpoint_c):
-    if dewpoint_c > temp_c: # fully saturated
+    if dewpoint_c > temp_c:
       return 1.0
     e_temp = 6.11 * math.pow(10, (7.5 * temp_c) / (237.3 + temp_c))
     e_dew = 6.11 * math.pow(10, (7.5 * dewpoint_c) / (237.3 + dewpoint_c))
@@ -144,7 +142,7 @@ class WeatherStation:
   # return the time of wetness object
   def get_tow(self):
     if self.tow is None:
-      raise ValueError("TOW not enabled, use enable_time_of_wetness()")
+      raise ValueError('TOW not enabled, use enable_time_of_wetness()')
     return self.tow
 
   # when adding a dewpoint, actually add it to both
@@ -664,48 +662,34 @@ class WeatherStation:
     self.wind_rose.add_wind_bearing(bearing, dt)
 
   # assess temporal coverage of data for a specific measurement type
+  # Args:
+  #   measurement_type: Type of measurement to analyze (temperature, wind, humidity, etc.)
+  #   year: Specific year to analyze (if None, uses the most common year)
+  # Returns:
+  #   Dict with coverage analysis results
   def assess_year_coverage(self, measurement_type='temperature', year=None):
-    """
-    Analyze temporal coverage for a specific measurement type.
-    
-    Args:
-      measurement_type: Type of measurement to analyze (temperature, wind, humidity, etc.)
-      year: Specific year to analyze (if None, uses the most common year)
-    
-    Returns:
-      Dict with coverage analysis results
-    """
     analyzer = YearCoverageAnalyzer()
-    
-    # Get datetime list for the measurement type
-    datetime_list = self._get_datetime_list_for_measurement_type(measurement_type)
-    
+    datetime_list = self._get_datetime_list_for_measurement_type(
+      measurement_type)
     return analyzer.analyze_coverage(datetime_list, year)
-  
-  def has_adequate_year_coverage(self, measurement_type='temperature', year=None):
-    """
-    Check if we have adequate year coverage for a specific measurement type.
-    
-    Args:
-      measurement_type: Type of measurement to analyze
-      year: Specific year to analyze
-    
-    Returns:
-      Boolean indicating if coverage is adequate
-    """
+
+  # Check if we have adequate year coverage for a specific measurement type.
+  # Args:
+  #   measurement_type: Type of measurement to analyze
+  #   year: Specific year to analyze
+  # Returns:
+  #   Boolean indicating if coverage is adequate
+  def has_adequate_year_coverage(self, measurement_type='temperature', 
+    year=None):
     coverage = self.assess_year_coverage(measurement_type, year)
     return coverage['adequate_coverage']
-  
+
+  # Get list of datetime objects for a specific measurement type.
+  # Args:
+  #   measurement_type: Type of measurement
+  # Returns:
+  #   List of datetime objects
   def _get_datetime_list_for_measurement_type(self, measurement_type):
-    """
-    Get list of datetime objects for a specific measurement type.
-    
-    Args:
-      measurement_type: Type of measurement
-    
-    Returns:
-      List of datetime objects
-    """
     measurement_type = measurement_type.lower()
     
     if measurement_type in ['temperature', 'temp', 'temp_c']:
