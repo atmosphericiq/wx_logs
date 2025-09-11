@@ -377,13 +377,17 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
     distributed_coverage = distributed_tow['coverage_analysis']
     clustered_coverage = clustered_tow['coverage_analysis']
 
-    # Both should fail enhanced QA with FAIL_DENSITY
-    self.assertEqual(distributed_coverage['enhanced_qa_state'],
-      'FAIL_DENSITY',
-      'Sparse distributed data should fail with FAIL_DENSITY')
-    self.assertEqual(clustered_coverage['enhanced_qa_state'],
-      'FAIL_DENSITY',
-      'Clustered sparse data should fail with FAIL_DENSITY')
+    # With coverage-only QA, distributed data might pass while clustered fails
+    # Both should be based on coverage adequacy now
+    distributed_qa_state = distributed_coverage['enhanced_qa_state']
+    clustered_qa_state = clustered_coverage['enhanced_qa_state']
+    
+    # Distributed data might pass if temporal coverage is adequate
+    self.assertIn(distributed_qa_state, ['PASS', 'FAIL_COVERAGE'],
+      'Sparse distributed data should only have coverage-based QA states')
+    # Clustered data should likely fail coverage due to poor distribution
+    self.assertEqual(clustered_qa_state, 'FAIL_COVERAGE',
+      'Clustered sparse data should fail coverage-only QA')
 
     # But coverage analysis should still show distribution differences
     dist_seasonal = distributed_coverage['temperature']['seasonal_coverage']
@@ -433,7 +437,7 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
       'Daily data should have gaps of at most 1 day')
 
   def test_enhanced_qa_state_transitions(self):
-    # Daily data should fail with FAIL_DENSITY (not enough density)
+    # Daily data should now pass coverage-only QA (good temporal distribution)
     station_daily = WeatherStation('STATION')
     station_daily.enable_time_of_wetness(enhanced_qa=True)
     self.create_realistic_daily_data(station_daily)
@@ -441,8 +445,8 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
     daily_json = json.loads(station_daily.serialize_summary())
     year_data = daily_json['air']['time_of_wetness']['by_year']['2021']
     daily_qa_state = year_data['coverage_analysis']['enhanced_qa_state']
-    msg = 'Daily data should fail enhanced QA due to insufficient density'
-    self.assertEqual(daily_qa_state, 'FAIL_DENSITY', msg)
+    msg = 'Daily data should pass coverage-only enhanced QA due to good temporal distribution'
+    self.assertEqual(daily_qa_state, 'PASS', msg)
 
     # Test FAIL_COVERAGE state with clustered data
     station_coverage_fail = WeatherStation('STATION')
@@ -504,15 +508,14 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
     year_data = research_json['air']['time_of_wetness']['by_year']['2021']
     research_coverage = year_data['coverage_analysis']
 
-    # Should have excellent temporal coverage but fail density check
+    # Should have excellent temporal coverage and now pass coverage-only QA
     msg = 'Daily research station data should have excellent ' + \
       'temporal coverage'
     self.assertGreater(
       research_coverage['temperature']['overall_score'], 90, msg)
-    msg = 'Daily research station data should fail enhanced QA due ' + \
-      'to low density'
+    msg = 'Daily research station data should now pass coverage-only enhanced QA'
     self.assertEqual(research_coverage['enhanced_qa_state'],
-      'FAIL_DENSITY', msg)
+      'PASS', msg)
 
   def test_backward_compatibility(self):
     station = WeatherStation('STATION')
@@ -638,11 +641,11 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
         
         self.assertFalse(station.enhanced_qa, "Enhanced QA should be disabled when set to False")
 
-    def test_daily_data_fails_enhanced_qa_density(self):
+    def test_daily_data_passes_coverage_only_qa(self):
         """
-        Test that daily data (1 reading per day) fails enhanced QA due to insufficient density.
-        Enhanced QA is MORE restrictive - it first checks traditional density (75%) before temporal coverage.
-        Daily data has only ~4% density (365/8760 hours) so it always fails with FAIL_DENSITY.
+        Test that daily data (1 reading per day) now passes enhanced QA with coverage-only approach.
+        Daily data has excellent temporal distribution despite low density (~4% = 365/8760 hours).
+        Coverage-only QA ignores density and focuses on temporal adequacy.
         """
         station = WeatherStation('STATION')
         station.enable_time_of_wetness(enhanced_qa=True)
@@ -660,29 +663,34 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
         # Use string key for the year
         tow_data = json_output['air']['time_of_wetness']['by_year']['2021']
         
-        # Should have coverage analysis despite density failure
+        # Should have coverage analysis
         self.assertIn('coverage_analysis', tow_data)
         
-        # Traditional QA should fail due to low density (~4%)
+        # Traditional QA should still fail due to low density (~4%)
         self.assertEqual(tow_data['qa_state'], 'FAIL',
                         "Traditional QA should fail for daily data due to insufficient density")
         self.assertLess(tow_data['percent_valid'], 0.75,
                        "Daily data should have <75% data density")
         
-        # Enhanced QA should fail with FAIL_DENSITY (never gets to check coverage)
-        self.assertEqual(tow_data['coverage_analysis']['enhanced_qa_state'], 'FAIL_DENSITY',
-                        "Enhanced QA should fail daily data with FAIL_DENSITY")
+        # Enhanced QA should now pass with coverage-only approach
+        self.assertEqual(tow_data['coverage_analysis']['enhanced_qa_state'], 'PASS',
+                        "Enhanced QA should pass daily data with good temporal coverage")
         
-        # Coverage analysis should still be computed and might be good
+        # Coverage analysis should show good distribution
         temp_coverage = tow_data['coverage_analysis']['temperature']
         humidity_coverage = tow_data['coverage_analysis']['humidity']
         
-        # The coverage analysis itself might show good distribution
-        # (but it doesn't matter since density check failed first)
+        # The coverage analysis should show adequate coverage
         print(f"DEBUG: Temperature adequate coverage: {temp_coverage['adequate_coverage']}")
         print(f"DEBUG: Humidity adequate coverage: {humidity_coverage['adequate_coverage']}")
         print(f"DEBUG: Temperature overall score: {temp_coverage['overall_score']}")
         print(f"DEBUG: Data density: {tow_data['percent_valid']:.3f}")
+        
+        # Both should show adequate coverage
+        self.assertTrue(temp_coverage['adequate_coverage'], 
+                       "Daily data should have adequate temperature coverage")
+        self.assertTrue(humidity_coverage['adequate_coverage'], 
+                       "Daily data should have adequate humidity coverage")
 
     def create_high_density_well_distributed_data(self, station, density=0.8):
         """
@@ -897,59 +905,7 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
         for field in expected_fields:
             self.assertIn(field, temp_analysis, f"Temperature analysis should include {field}")
 
-    def test_sparse_distributed_vs_clustered_data(self):
-        """
-        Test temporal coverage analysis with sparse data. Both sparse distributed
-        and clustered data will fail density check, but coverage analysis still 
-        shows the distribution differences.
-        """
-        # Sparse but well-distributed data (weekly measurements, ~52 readings = 0.6% density)
-        station_distributed = WeatherStation('STATION')
-        station_distributed.enable_time_of_wetness(enhanced_qa=True)
-        self.create_sparse_but_distributed_data(station_distributed, interval_days=7)
-        
-        # Clustered data (concentrated in 3 months, similar amount of data)
-        station_clustered = WeatherStation('STATION')
-        station_clustered.enable_time_of_wetness(enhanced_qa=True)
-        self.create_clustered_data(station_clustered)
-        
-        # Get results
-        distributed_json = json.loads(station_distributed.serialize_summary())
-        clustered_json = json.loads(station_clustered.serialize_summary())
-        
-        distributed_tow = distributed_json['air']['time_of_wetness']['by_year']['2021']
-        clustered_tow = clustered_json['air']['time_of_wetness']['by_year']['2021']
-        
-        # Debug: Print actual data densities
-        print(f"DEBUG: Sparse distributed data density: {distributed_tow['percent_valid']:.3f}")
-        print(f"DEBUG: Clustered data density: {clustered_tow['percent_valid']:.3f}")
-        
-        # Both should fail traditional QA due to low density
-        self.assertEqual(distributed_tow['qa_state'], 'FAIL',
-                        "Sparse distributed data should fail traditional QA")
-        self.assertEqual(clustered_tow['qa_state'], 'FAIL', 
-                        "Clustered sparse data should fail traditional QA")
-        
-        distributed_coverage = distributed_tow['coverage_analysis']
-        clustered_coverage = clustered_tow['coverage_analysis']
-        
-        # Both should fail enhanced QA with FAIL_DENSITY
-        self.assertEqual(distributed_coverage['enhanced_qa_state'], 'FAIL_DENSITY',
-                        "Sparse distributed data should fail with FAIL_DENSITY")
-        self.assertEqual(clustered_coverage['enhanced_qa_state'], 'FAIL_DENSITY',
-                        "Clustered sparse data should fail with FAIL_DENSITY")
-        
-        # But coverage analysis should still show distribution differences
-        distributed_seasonal = distributed_coverage['temperature']['seasonal_coverage']
-        clustered_seasonal = clustered_coverage['temperature']['seasonal_coverage']
-        
-        self.assertGreater(distributed_seasonal, clustered_seasonal,
-                          "Well-distributed sparse data should have better seasonal coverage than clustered")
-        
-        print(f"Sparse distributed seasonal coverage: {distributed_seasonal:.1f}%")
-        print(f"Clustered seasonal coverage: {clustered_seasonal:.1f}%")
-        print(f"Distributed QA state: {distributed_coverage['enhanced_qa_state']}")
-        print(f"Clustered QA state: {clustered_coverage['enhanced_qa_state']}")
+    # This method was already updated above in the existing test - now it correctly handles the coverage-only QA approach.
 
     def test_coverage_analysis_metrics(self):
         """Test specific coverage analysis metrics and their calculations."""
@@ -980,33 +936,8 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
         self.assertLessEqual(temp_coverage['largest_gap_days'], 1,
                            "Daily data should have gaps of at most 1 day")
 
-    def test_enhanced_qa_state_transitions(self):
-        """Test different enhanced QA state outcomes."""
-        # Daily data should fail with FAIL_DENSITY (not enough density)
-        station_daily = WeatherStation('STATION')
-        station_daily.enable_time_of_wetness(enhanced_qa=True)
-        self.create_realistic_daily_data(station_daily)
-        
-        daily_json = json.loads(station_daily.serialize_summary())
-        daily_qa_state = daily_json['air']['time_of_wetness']['by_year']['2021']['coverage_analysis']['enhanced_qa_state']
-        self.assertEqual(daily_qa_state, 'FAIL_DENSITY', 
-                        "Daily data should fail enhanced QA due to insufficient density")
-        
-        # Test FAIL_COVERAGE state with clustered data
-        station_coverage_fail = WeatherStation('STATION')
-        station_coverage_fail.enable_time_of_wetness(enhanced_qa=True)
-        self.create_clustered_data(station_coverage_fail)
-        
-        coverage_fail_json = json.loads(station_coverage_fail.serialize_summary())
-        coverage_analysis = coverage_fail_json['air']['time_of_wetness']['by_year']['2021']['coverage_analysis']
-        
-        # The QA state should reflect coverage quality
-        coverage_qa_state = coverage_analysis['enhanced_qa_state']
-        print(f"Coverage QA state for clustered data: {coverage_qa_state}")
-        
-        # Test that coverage analysis provides useful metrics even for poor coverage
-        self.assertLess(coverage_analysis['temperature']['seasonal_coverage'], 90,
-                       "Clustered data should have poor seasonal coverage")
+    # This test is now covered by the earlier test_enhanced_qa_state_transitions method
+    # Removed duplicate method
 
     def test_realistic_weather_patterns(self):
         """Test enhanced QA with realistic weather station scenarios."""
@@ -1036,7 +967,7 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
         self.assertLess(airport_coverage['temperature']['seasonal_coverage'], 100,
                        "3-month data should have incomplete seasonal coverage")
         
-        # Scenario 2: Research station with daily measurements (will fail due to density)
+        # Scenario 2: Research station with daily measurements (now passes coverage-only QA)
         station_research = WeatherStation('STATION')
         station_research.enable_time_of_wetness(enhanced_qa=True)
         self.create_realistic_daily_data(station_research)
@@ -1044,11 +975,11 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
         research_json = json.loads(station_research.serialize_summary())
         research_coverage = research_json['air']['time_of_wetness']['by_year']['2021']['coverage_analysis']
         
-        # Should have excellent temporal coverage but fail density check
+        # Should have excellent temporal coverage and pass coverage-only QA
         self.assertGreater(research_coverage['temperature']['overall_score'], 90,
                           "Daily research station data should have excellent temporal coverage")
-        self.assertEqual(research_coverage['enhanced_qa_state'], 'FAIL_DENSITY',
-                        "Daily research station data should fail enhanced QA due to low density")
+        self.assertEqual(research_coverage['enhanced_qa_state'], 'PASS',
+                        "Daily research station data should pass coverage-only enhanced QA")
 
     def test_backward_compatibility(self):
         """Test that existing code without enhanced_qa still works."""
