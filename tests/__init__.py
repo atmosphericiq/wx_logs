@@ -10,6 +10,7 @@ from .kriger_test_case import KrigerTestCase
 from .tow_calculator_test_case import TOWCalculatorTestCase
 from .vector_layer_test_case import VectorLayerTestCase
 from .hourly_grid_test_case import HourlyGridTestCase
+from .weather_station_enhanced_qa_test_case import WeatherStationEnhancedQATestCase
 
 # algorithm tests
 from .grid_to_point_test_case import GridToPointTestCase

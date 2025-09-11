@@ -37,6 +37,7 @@ class WeatherStation:
     self.qa_status = 'PASS'
     self.on_error = 'RAISE'
     self.tow = None
+    self.enhanced_qa = True  # default value for enhanced QA
 
     self.air_temp_c_values = {}
     self.air_pressure_hpa_values = {}
@@ -62,9 +63,10 @@ class WeatherStation:
     self.ozone_ppb_values = {}
     self.so2_values = {}
 
-  def enable_time_of_wetness(self, threshold=0.75):
+  def enable_time_of_wetness(self, threshold=0.75, enhanced_qa=True):
     if self.tow is None: # don't overwrite
       self.tow = TOWCalculator(threshold=threshold)
+    self.enhanced_qa = enhanced_qa
 
   def get_type(self):
     return self._reading_type
@@ -606,7 +608,11 @@ class WeatherStation:
     # if we have tow enabled, include that in the air section
     if self.tow is not None:
       payload['air']['time_of_wetness'] = self.tow.get_averages()
-      payload['air']['time_of_wetness']['by_year'] = self.tow.get_years()
+      # Use enhanced QA method if enhanced_qa is True, otherwise use original method
+      if getattr(self, 'enhanced_qa', True):  # default to True for backwards compatibility
+        payload['air']['time_of_wetness']['by_year'] = self.tow.get_years_with_coverage()
+      else:
+        payload['air']['time_of_wetness']['by_year'] = self.tow.get_years()
 
     # confirm we can dump to JSON
     try:
