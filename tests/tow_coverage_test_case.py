@@ -5,7 +5,6 @@ from wx_logs.tow_calculator import TOWCalculator
 class TOWCoverageTestCase(unittest.TestCase):
 
   def test_tow_full_year_hourly_coverage_ok(self):
-    """Test TOW with full year hourly data has adequate coverage"""
     tow = TOWCalculator()
     
     # Add hourly data for full year 2021
@@ -27,7 +26,6 @@ class TOWCoverageTestCase(unittest.TestCase):
     self.assertGreaterEqual(humidity_coverage['overall_score'], 95.0)
 
   def test_tow_half_year_coverage_not_ok(self):
-    """Test TOW with half year data does not have adequate coverage"""
     tow = TOWCalculator()
     
     # Add hourly data for only first half of year
@@ -46,7 +44,6 @@ class TOWCoverageTestCase(unittest.TestCase):
     self.assertLess(temp_coverage['overall_score'], 75.0)
 
   def test_tow_enhanced_qa_states(self):
-    """Test enhanced QA states that consider both density and coverage"""
     tow = TOWCalculator(threshold=0.5)  # Lower threshold for density
     
     # Add hourly data for full year - should pass both density and coverage
@@ -61,13 +58,13 @@ class TOWCoverageTestCase(unittest.TestCase):
     year_data = years_with_coverage[2021]
     
     # Should pass enhanced QA
-    self.assertEqual(year_data['coverage_analysis']['enhanced_qa_state'], 'PASS')
+    self.assertEqual(year_data['coverage_analysis']['enhanced_qa_state'], 
+      'PASS')
     
     # Traditional QA should also pass
     self.assertEqual(year_data['qa_state'], 'PASS')
 
   def test_tow_enhanced_qa_fail_coverage(self):
-    """Test enhanced QA fails when coverage is poor even with good density"""
     tow = TOWCalculator(threshold=0.1)  # Very low threshold for density
     
     # Add data only for first 3 months - good density but poor coverage
@@ -83,13 +80,14 @@ class TOWCoverageTestCase(unittest.TestCase):
     
     # Traditional QA might pass due to low threshold
     # But enhanced QA should fail due to poor coverage
-    self.assertEqual(year_data['coverage_analysis']['enhanced_qa_state'], 'FAIL_COVERAGE')
+    self.assertEqual(year_data['coverage_analysis']['enhanced_qa_state'], 
+      'FAIL_COVERAGE')
     
     # Coverage should be inadequate
-    self.assertFalse(year_data['coverage_analysis']['temperature']['adequate_coverage'])
+    coverage = year_data['coverage_analysis']['temperature']
+    self.assertFalse(coverage['adequate_coverage'])
 
   def test_tow_coverage_different_measurement_types(self):
-    """Test coverage analysis for different measurement types in TOW"""
     tow = TOWCalculator()
     
     # Add temperature data for full year
@@ -109,12 +107,12 @@ class TOWCoverageTestCase(unittest.TestCase):
     temp_coverage = tow.assess_year_coverage(2021, 'temperature')
     humidity_coverage = tow.assess_year_coverage(2021, 'humidity')
     
-    self.assertGreater(temp_coverage['overall_score'], humidity_coverage['overall_score'])
+    self.assertGreater(temp_coverage['overall_score'], 
+      humidity_coverage['overall_score'])
     self.assertTrue(tow.has_adequate_year_coverage(2021, 'temperature'))
     self.assertFalse(tow.has_adequate_year_coverage(2021, 'humidity'))
 
   def test_tow_get_years_with_coverage_structure(self):
-    """Test the structure of get_years_with_coverage output"""
     tow = TOWCalculator()
     
     # Add some data
@@ -137,8 +135,9 @@ class TOWCoverageTestCase(unittest.TestCase):
       self.assertIn(measurement_type, coverage_analysis)
       
       analysis = coverage_analysis[measurement_type]
-      expected_keys = ['overall_score', 'seasonal_coverage', 'monthly_coverage', 
-                      'adequate_coverage', 'days_with_data', 'largest_gap_days']
+      expected_keys = ['overall_score', 'seasonal_coverage',
+        'monthly_coverage', 'adequate_coverage', 'days_with_data',
+        'largest_gap_days']
       
       for key in expected_keys:
         self.assertIn(key, analysis)
@@ -146,7 +145,7 @@ class TOWCoverageTestCase(unittest.TestCase):
     # Check enhanced QA state exists
     self.assertIn('enhanced_qa_state', coverage_analysis)
     self.assertIn(coverage_analysis['enhanced_qa_state'], 
-                  ['PASS', 'FAIL_DENSITY', 'FAIL_COVERAGE'])
+      ['PASS', 'FAIL_DENSITY', 'FAIL_COVERAGE'])
 
 if __name__ == '__main__':
   unittest.main()

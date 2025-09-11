@@ -5,7 +5,6 @@ from wx_logs import WeatherStation
 class DataCoverageTestCase(unittest.TestCase):
 
   def test_full_year_hourly_data_ok(self):
-    """Test case 1: Full year with hourly data should be OK"""
     station = WeatherStation('STATION')
     
     # Add hourly temperature data for full year 2021
@@ -24,7 +23,6 @@ class DataCoverageTestCase(unittest.TestCase):
     self.assertGreaterEqual(coverage['monthly_coverage'], 95.0)
 
   def test_full_year_daily_data_ok(self):
-    """Test case 2: Full year with daily data should be OK"""
     station = WeatherStation('STATION')
     
     # Add daily temperature data for full year 2021
@@ -42,7 +40,6 @@ class DataCoverageTestCase(unittest.TestCase):
     self.assertGreaterEqual(coverage['monthly_coverage'], 90.0)
 
   def test_full_year_mixed_frequency_ok(self):
-    """Test case 3: Full year with daily + sometimes hourly data should be OK"""
     station = WeatherStation('STATION')
     
     # Add daily data for full year
@@ -67,7 +64,6 @@ class DataCoverageTestCase(unittest.TestCase):
     self.assertGreaterEqual(coverage['monthly_coverage'], 90.0)
 
   def test_half_year_daily_not_ok(self):
-    """Test case 4: Half year with daily data should NOT be OK"""
     station = WeatherStation('STATION')
     
     # Add daily data for only first half of year (182 days)
@@ -85,7 +81,6 @@ class DataCoverageTestCase(unittest.TestCase):
     self.assertLess(coverage['seasonal_coverage'], 75.0)
 
   def test_scattered_data_throughout_year_ok(self):
-    """Test case: Scattered measurements throughout year should be OK if distributed"""
     station = WeatherStation('STATION')
     
     # Add measurements scattered throughout the year (every 3 days)
@@ -105,7 +100,6 @@ class DataCoverageTestCase(unittest.TestCase):
       self.assertFalse(station.has_adequate_year_coverage('temperature'))
 
   def test_large_gap_in_middle_not_ok(self):
-    """Test case: Large gap in middle of year should NOT be OK"""
     station = WeatherStation('STATION')
     
     # Add data for first 3 months
@@ -130,7 +124,6 @@ class DataCoverageTestCase(unittest.TestCase):
     self.assertLess(coverage['seasonal_coverage'], 75.0)
 
   def test_different_measurement_types(self):
-    """Test coverage analysis works for different measurement types"""
     station = WeatherStation('STATION')
     
     # Add full year of temperature data
@@ -151,7 +144,5 @@ class DataCoverageTestCase(unittest.TestCase):
     temp_coverage = station.assess_year_coverage('temperature')
     wind_coverage = station.assess_year_coverage('wind')
     
-    self.assertGreater(temp_coverage['overall_score'], wind_coverage['overall_score'])
-
-if __name__ == '__main__':
-  unittest.main()
+    self.assertGreater(temp_coverage['overall_score'], 
+      wind_coverage['overall_score'])
