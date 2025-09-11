@@ -1,15 +1,13 @@
 import datetime
 import numpy as np
+from .data_coverage import YearCoverageAnalyzer
 
 TOW_RH_THRESHOLD = 80
 TOW_T_THRESHOLD = 0
 HOURS_PER_YEAR = 8760
 
-# this class is designed to calculate annual TOW (time of wetness)
-# for a given year which is the number of hours in a year that
-# the surface is wet. This is important for the calculation of
-# corrosion rates for metals.
-# number of hours per year with RH > 80% and T > 0
+# Calculates annual TOW (time of wetness) - number of hours per year
+# with RH > 80% and T > 0. Important for corrosion rate calculations.
 class TOWCalculator:
 
   def __init__(self, precision=4, threshold=0.75):
@@ -48,9 +46,7 @@ class TOWCalculator:
         max_hours += years[year]['max_hours']
         valid_years += 1
 
-    # ok now do the same projection we do below
     projected_tow = self.annualize(total_hours, tow_hours)
-
     return {'annual_time_of_wetness': projected_tow,
       'valid_years': valid_years}
 
@@ -72,7 +68,8 @@ class TOWCalculator:
         mean_rh = np.mean(rh_readings)
         if mean_t > TOW_T_THRESHOLD and mean_rh > TOW_RH_THRESHOLD:
           tow_hours += 1
-      percent_valid = round(float(total_hours) / float(max_hours), self._precision)
+      percent_valid = round(float(total_hours) / float(max_hours),
+        self._precision)
       qa_state = 'PASS' if percent_valid > self._threshold else 'FAIL'
       if qa_state == 'PASS':
         projected_tow = self.project_tow(total_hours, max_hours, tow_hours)
@@ -89,7 +86,7 @@ class TOWCalculator:
 
   # extrapolate total tow based on missing values
   def project_tow(self, hours_with_data, max_hours, current_tow):
-    return round((current_tow / hours_with_data) * max_hours, 2)
+    return int(round((current_tow / hours_with_data) * max_hours, 0))
 
   # creates an empty year with one row for every hour 
   # of the year
@@ -115,3 +112,115 @@ class TOWCalculator:
   def add_humidity(self, rh, dt):
     (year, month, day, hour) = self._validate_dt(dt)
     self._data[year][(month, day, hour)]['rh'].append(rh)
+
+  # Analyze temporal coverage for TOW data using the new coverage analyzer.
+  # Args:
+  #   year: Specific year to analyze (if None, uses the most common year)
+  #   measurement_type: 'temperature' or 'humidity' to analyze coverage
+  # Returns:
+  #   Dict with coverage analysis results
+  def assess_year_coverage(self, year=None, measurement_type='temperature'):
+    analyzer = YearCoverageAnalyzer()
+    datetime_list = self._get_tow_datetime_list(year, measurement_type)
+    return analyzer.analyze_coverage(datetime_list, year)
+  
+  # Check if we have adequate year coverage for TOW data.
+  # Args:
+  #   year: Specific year to analyze
+  #   measurement_type: 'temperature' or 'humidity'
+  # Returns:
+  #   Boolean indicating if coverage is adequate
+  def has_adequate_year_coverage(self, year=None,
+    measurement_type='temperature'):
+    coverage = self.assess_year_coverage(year, measurement_type)
+    return coverage['adequate_coverage']
+
+  # Get list of datetime objects for TOW data for a specific measurement type.
+  # Args:
+  #   year: Year to extract data from (if None, uses all years)
+  #   measurement_type: 'temperature' or 'humidity'
+  # Returns:
+  #   List of datetime objects where measurements exist
+  def _get_tow_datetime_list(self, year, measurement_type):
+    datetime_list = []
+    
+    years_to_check = [year] if year else list(self._data.keys())
+    
+    for check_year in years_to_check:
+      if check_year not in self._data:
+        continue
+        
+      for (month, day, hour) in self._data[check_year].keys():
+        data_point = self._data[check_year][(month, day, hour)]
+        
+        # Check if we have data for the requested measurement type
+        has_data = False
+        if measurement_type.lower() in ['temperature', 'temp', 't']:
+          has_data = len(data_point['t']) > 0
+        elif measurement_type.lower() in ['humidity', 'rh']:
+          has_data = len(data_point['rh']) > 0
+        else:
+          # For 'both' or unknown, require both temperature and humidity
+          has_data = len(data_point['t']) > 0 and len(data_point['rh']) > 0
+        
+        if has_data:
+          dt = datetime.datetime(check_year, month, day, hour)
+          datetime_list.append(dt)
+    
+    return datetime_list
+
+  # Enhanced version of get_years() that includes temporal coverage analysis.
+  # Returns:
+  #   Dict with yearly data including both traditional QA and new coverage analysis
+  def get_years_with_coverage(self):
+    years_data = self.get_years()
+    
+    for year in years_data.keys():
+      # Add coverage analysis for temperature and humidity
+      temp_coverage = self.assess_year_coverage(year, 'temperature')
+      humidity_coverage = self.assess_year_coverage(year, 'humidity')
+      
+      # Add coverage data to the existing payload
+      years_data[year]['coverage_analysis'] = {
+        'temperature': {
+          'overall_score': temp_coverage['overall_score'],
+          'seasonal_coverage': temp_coverage['seasonal_coverage'],
+          'monthly_coverage': temp_coverage['monthly_coverage'],
+          'adequate_coverage': temp_coverage['adequate_coverage'],
+          'days_with_data': temp_coverage['days_with_data'],
+          'largest_gap_days': temp_coverage['largest_gap_days']
+        },
+        'humidity': {
+          'overall_score': humidity_coverage['overall_score'],
+          'seasonal_coverage': humidity_coverage['seasonal_coverage'],
+          'monthly_coverage': humidity_coverage['monthly_coverage'],
+          'adequate_coverage': humidity_coverage['adequate_coverage'],
+          'days_with_data': humidity_coverage['days_with_data'],
+          'largest_gap_days': humidity_coverage['largest_gap_days']
+        },
+        # Enhanced QA state that considers both data density and temporal distribution
+        'enhanced_qa_state': self._calculate_enhanced_qa_state(
+          years_data[year]['qa_state'], 
+          temp_coverage['adequate_coverage'],
+          humidity_coverage['adequate_coverage']
+        )
+      }
+    
+    return years_data
+
+  # Calculate enhanced QA state considering both traditional density and
+  # temporal coverage.
+  # Args:
+  #   traditional_qa: Traditional QA state ('PASS' or 'FAIL')
+  #   temp_adequate: Boolean for temperature coverage adequacy
+  #   humidity_adequate: Boolean for humidity coverage adequacy
+  # Returns:
+  #   Enhanced QA state string
+  def _calculate_enhanced_qa_state(self, traditional_qa, temp_adequate,
+    humidity_adequate):
+    if traditional_qa == 'FAIL':
+      return 'FAIL_DENSITY'  # Failed due to insufficient data density
+    elif not temp_adequate or not humidity_adequate:
+      return 'FAIL_COVERAGE'  # Failed due to poor temporal distribution
+    else:
+      return 'PASS'  # Passes both density and coverage checks

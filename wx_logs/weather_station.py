@@ -1,14 +1,6 @@
-# weather_station.py
-# A weather logging library
-# this is for processing and storing weather data
-# and generating summaries of the data
-# Author: Tom Hayden
-
 import json
 import dateparser
 import warnings
-# Suppress specific warning from pyproj
-warnings.filterwarnings("ignore", category=UserWarning, module='pyproj')
 import numpy as np
 import math
 import joblib
@@ -18,8 +10,11 @@ import pytz
 from .wind_rose import WindRose
 from .hourly_grid import HourlyGrid
 from .tow_calculator import TOWCalculator
-from .helpers import should_value_be_none, simple_confirm_value_in_range, \
-    validate_dt_or_convert_to_datetime_obj
+from .data_coverage import YearCoverageAnalyzer
+from .helpers import (should_value_be_none, simple_confirm_value_in_range,
+  validate_dt_or_convert_to_datetime_obj)
+
+warnings.filterwarnings('ignore', category=UserWarning, module='pyproj')
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +24,8 @@ class WeatherStation:
 
   def __init__(self, reading_type=None, precision=2):
     self._precision = precision
-    assert reading_type in self.VALID_TYPES, f"Invalid reading type: {reading_type}"
+    msg = f'Invalid reading type: {reading_type}'
+    assert reading_type in self.VALID_TYPES, msg
     self._reading_type = reading_type
 
     self.station_id = None
@@ -41,6 +37,7 @@ class WeatherStation:
     self.qa_status = 'PASS'
     self.on_error = 'RAISE'
     self.tow = None
+    self.enhanced_qa = True  # default value for enhanced QA
 
     self.air_temp_c_values = {}
     self.air_pressure_hpa_values = {}
@@ -66,12 +63,10 @@ class WeatherStation:
     self.ozone_ppb_values = {}
     self.so2_values = {}
 
-  # if we enable the tow calculator then when we add
-  # temperature or humidity values, we also put into
-  # the TOW object
-  def enable_time_of_wetness(self, threshold=0.75):
+  def enable_time_of_wetness(self, threshold=0.75, enhanced_qa=True):
     if self.tow is None: # don't overwrite
       self.tow = TOWCalculator(threshold=threshold)
+    self.enhanced_qa = enhanced_qa
 
   def get_type(self):
     return self._reading_type
@@ -112,13 +107,13 @@ class WeatherStation:
 
   def set_qa_status(self, status):
     if status not in ['PASS', 'FAIL']:
-      raise ValueError(f"Invalid QA status: {status}")
+      raise ValueError(f'Invalid QA status: {status}')
     self.qa_status = status
 
   def set_on_error(self, on_error):
     on_error = on_error.upper()
     if on_error not in ['RAISE', 'IGNORE', 'FAIL_QA']:
-      raise ValueError(f"Invalid on_error: {on_error}")
+      raise ValueError(f'Invalid on_error: {on_error}')
     self.on_error = on_error
 
   def get_qa_status(self):
@@ -136,10 +131,10 @@ class WeatherStation:
     elif self.on_error == 'IGNORE':
       logger.warning(message)
     else:
-      raise ValueError(f"Invalid on_error: {self.on_error}")
+      raise ValueError(f'Invalid on_error: {self.on_error}')
 
   def _dewpoint_to_relative_humidity(self, temp_c, dewpoint_c):
-    if dewpoint_c > temp_c: # fully saturated
+    if dewpoint_c > temp_c:
       return 1.0
     e_temp = 6.11 * math.pow(10, (7.5 * temp_c) / (237.3 + temp_c))
     e_dew = 6.11 * math.pow(10, (7.5 * dewpoint_c) / (237.3 + dewpoint_c))
@@ -149,7 +144,7 @@ class WeatherStation:
   # return the time of wetness object
   def get_tow(self):
     if self.tow is None:
-      raise ValueError("TOW not enabled, use enable_time_of_wetness()")
+      raise ValueError('TOW not enabled, use enable_time_of_wetness()')
     return self.tow
 
   # when adding a dewpoint, actually add it to both
@@ -332,30 +327,34 @@ class WeatherStation:
       raise ValueError(f"Invalid datetime object: {dt}")
 
   def _mean(self, values):
-    return round(np.mean([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(np.mean(vals), self._precision)
 
   def _min(self, values):
-    return round(min([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(min(vals), self._precision)
 
   def _max(self, values):
-    return round(max([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(max(vals), self._precision)
 
   def _sum(self, values):
-    return round(sum([v[1] for v in values if v[1] is not None]), self._precision)
+    vals = [v[1] for v in values if v[1] is not None]
+    return round(sum(vals), self._precision)
 
   # precip has to use a special data structure because of how reporting
   # that comes in is hourly and we want to be able to report on it hourly
   def get_precipitation_mm(self, measure='SUM'):
     if measure == 'SUM':
-        value = self.precip_grid.get_total()
+      value = self.precip_grid.get_total()
     elif measure == 'MEAN':
-        value = self.precip_grid.get_mean()
+      value = self.precip_grid.get_mean()
     elif measure == 'MAX':
-        value = self.precip_grid.get_max()
+      value = self.precip_grid.get_max()
     elif measure == 'MIN':
-        value = self.precip_grid.get_min()
+      value = self.precip_grid.get_min()
     else:
-        raise ValueError(f"Invalid measure: {measure}")
+      raise ValueError(f'Invalid measure: {measure}')
     return value if value is not None else 0
 
 
@@ -609,7 +608,11 @@ class WeatherStation:
     # if we have tow enabled, include that in the air section
     if self.tow is not None:
       payload['air']['time_of_wetness'] = self.tow.get_averages()
-      payload['air']['time_of_wetness']['by_year'] = self.tow.get_years()
+      # Use enhanced QA method if enhanced_qa is True, otherwise use original method
+      if getattr(self, 'enhanced_qa', True):  # default to True for backwards compatibility
+        payload['air']['time_of_wetness']['by_year'] = self.tow.get_years_with_coverage()
+      else:
+        payload['air']['time_of_wetness']['by_year'] = self.tow.get_years()
 
     # confirm we can dump to JSON
     try:
@@ -663,3 +666,55 @@ class WeatherStation:
         bearing += 360
       simple_confirm_value_in_range('bearing', bearing, 0, 360)
     self.wind_rose.add_wind_bearing(bearing, dt)
+
+  # assess temporal coverage of data for a specific measurement type
+  # Args:
+  #   measurement_type: Type of measurement to analyze (temperature, wind, humidity, etc.)
+  #   year: Specific year to analyze (if None, uses the most common year)
+  # Returns:
+  #   Dict with coverage analysis results
+  def assess_year_coverage(self, measurement_type='temperature', year=None):
+    analyzer = YearCoverageAnalyzer()
+    datetime_list = self._get_datetime_list_for_measurement_type(
+      measurement_type)
+    return analyzer.analyze_coverage(datetime_list, year)
+
+  # Check if we have adequate year coverage for a specific measurement type.
+  # Args:
+  #   measurement_type: Type of measurement to analyze
+  #   year: Specific year to analyze
+  # Returns:
+  #   Boolean indicating if coverage is adequate
+  def has_adequate_year_coverage(self, measurement_type='temperature', 
+    year=None):
+    coverage = self.assess_year_coverage(measurement_type, year)
+    return coverage['adequate_coverage']
+
+  # Get list of datetime objects for a specific measurement type.
+  # Args:
+  #   measurement_type: Type of measurement
+  # Returns:
+  #   List of datetime objects
+  def _get_datetime_list_for_measurement_type(self, measurement_type):
+    measurement_type = measurement_type.lower()
+    
+    if measurement_type in ['temperature', 'temp', 'temp_c']:
+      return list(self.air_temp_c_values.keys())
+    elif measurement_type in ['humidity']:
+      return list(self.air_humidity_values.keys())
+    elif measurement_type in ['pressure', 'pressure_hpa']:
+      return list(self.air_pressure_hpa_values.keys())
+    elif measurement_type in ['wind']:
+      return list(self.wind_rose.get_wind_values().keys())
+    elif measurement_type in ['precipitation', 'precip']:
+      return list(self.precip_values.keys())
+    elif measurement_type in ['pm25', 'pm2.5']:
+      return list(self.pm_25_values.keys())
+    elif measurement_type in ['pm10']:
+      return list(self.pm_10_values.keys())
+    elif measurement_type in ['ozone', 'ozone_ppb']:
+      return list(self.ozone_ppb_values.keys())
+    elif measurement_type in ['so2']:
+      return list(self.so2_values.keys())
+    else:
+      raise ValueError(f"Unknown measurement type: {measurement_type}")

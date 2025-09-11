@@ -1,5 +1,7 @@
 from .weather_station_test_case import WeatherStationTestCase
 from .weather_station_tow_test_case import WeatherStationTOWTestCase
+from .data_coverage_test_case import DataCoverageTestCase
+from .tow_coverage_test_case import TOWCoverageTestCase
 from .collection_test_case import CollectionTestCase
 from .file_storage_test_case import FileStorageTestCase
 from .raster_band_test_case import RasterBandTestCase
@@ -8,6 +10,7 @@ from .kriger_test_case import KrigerTestCase
 from .tow_calculator_test_case import TOWCalculatorTestCase
 from .vector_layer_test_case import VectorLayerTestCase
 from .hourly_grid_test_case import HourlyGridTestCase
+from .weather_station_enhanced_qa_test_case import WeatherStationEnhancedQATestCase
 
 # algorithm tests
 from .grid_to_point_test_case import GridToPointTestCase

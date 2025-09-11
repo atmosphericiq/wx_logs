@@ -1,6 +1,68 @@
 # Project
 wx_logs is a python package designed for processing large amounts of weather or climate data that comes in as point data. From there, we can do a lot of processing to it.  See README.md for more details.
 
+# File Structure
+Main package structure:
+- `wx_logs/` - Main package directory containing all modules
+  - `__init__.py` - Package initialization
+  - `weather_station.py` - Weather station data handling
+  - `vector_layer.py` - Vector data processing
+  - `file_storage.py` - File I/O operations
+  - `helpers.py` - Utility functions
+  - `hourly_grid.py` - Grid-based hourly data processing
+  - `raster_band.py` - Raster data operations
+  - `tow_calculator.py` - Time of wetness calculations
+  - `collection.py` - Data collection management
+  - `wind_rose.py` - Wind rose visualization and analysis
+  - `kriger.py` - Kriging interpolation algorithms
+  - `algorithms/` - Subdirectory for processing algorithms
+    - `algorithm.py` - Base algorithm class
+    - `raster_distance_to_vector.py` - Distance calculation algorithms
+    - `grid_to_point.py` - Grid to point conversion
+- `tests/` - Test files (follows same naming pattern with _test_case.py suffix)
+- `setup.py` - Package setup configuration
+- `README.md` - Project documentation
+- Other files: `.gitignore`, `notes.txt`, `release.sh`
+
+# Usage Examples
+The wx_logs package is typically used in external scripts to process weather data. Here's a typical usage pattern:
+
+## NOAA Data Processing Example
+Example script (`parse_noaa_wind.py`) showing how wx_logs is used to process NOAA weather data:
+
+1. **Setup WeatherStation object:**
+```python
+from wx_logs import WeatherStation
+
+wx = WeatherStation('STATION')
+wx.set_station_id(site_id)           # e.g., '722110-12842'
+wx.set_station_owner('NOAA')
+wx.set_station_name(site['name'])    # from site list CSV
+wx.set_location(lat, lon)            # from site list CSV
+wx.set_timezone('UTC')
+wx.set_on_error('IGNORE')
+wx.enable_time_of_wetness()          # Enable TOW calculations
+```
+
+2. **Add weather data points:**
+```python
+# Add various weather measurements with datetime
+wx.add_temp_c(temperature, datetime)
+wx.add_wind(speed, direction, datetime)
+wx.add_pressure_hpa(pressure, datetime)
+wx.add_humidity(humidity, datetime)
+wx.add_precipitation_mm(precip_mm, duration_minutes, datetime)
+```
+
+3. **Common workflow:**
+- Parse gzipped NOAA files using ish_parser
+- Filter METAR/SYNOP reports
+- Extract site info from CSV station list
+- Process each weather report and add data to WeatherStation
+- WeatherStation handles data validation, time series, and TOW calculations
+
+The package is designed to handle large datasets with point-based weather observations and convert them into processed time series with derived metrics.
+
 # Running tests
 To run tests, you can use python unittest
 
