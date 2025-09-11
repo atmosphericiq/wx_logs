@@ -86,7 +86,7 @@ class TOWCalculator:
 
   # extrapolate total tow based on missing values
   def project_tow(self, hours_with_data, max_hours, current_tow):
-    return round((current_tow / hours_with_data) * max_hours, 2)
+    return int(round((current_tow / hours_with_data) * max_hours, 0))
 
   # creates an empty year with one row for every hour 
   # of the year
