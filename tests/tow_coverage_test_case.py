@@ -78,8 +78,7 @@ class TOWCoverageTestCase(unittest.TestCase):
     years_with_coverage = tow.get_years_with_coverage()
     year_data = years_with_coverage[2021]
     
-    # Traditional QA might pass due to low threshold
-    # But enhanced QA should fail due to poor coverage
+    # Enhanced QA should fail due to poor coverage (coverage-only QA)
     self.assertEqual(year_data['coverage_analysis']['enhanced_qa_state'], 
       'FAIL_COVERAGE')
     
@@ -142,10 +141,10 @@ class TOWCoverageTestCase(unittest.TestCase):
       for key in expected_keys:
         self.assertIn(key, analysis)
     
-    # Check enhanced QA state exists
+    # Check enhanced QA state exists and only has valid coverage-only states
     self.assertIn('enhanced_qa_state', coverage_analysis)
     self.assertIn(coverage_analysis['enhanced_qa_state'], 
-      ['PASS', 'FAIL_DENSITY', 'FAIL_COVERAGE'])
+      ['PASS', 'FAIL_COVERAGE'])  # No FAIL_DENSITY in coverage-only QA
 
 if __name__ == '__main__':
   unittest.main()

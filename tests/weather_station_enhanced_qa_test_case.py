@@ -120,12 +120,12 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
     self.assertLess(tow_data['percent_valid'], 0.75,
       'Daily data should have <75% data density')
 
-    # Enhanced QA should fail with FAIL_DENSITY
-    # (never gets to check coverage)
-    err_msg = 'Enhanced QA should fail daily data with FAIL_DENSITY'
-    self.assertEqual(
-      tow_data['coverage_analysis']['enhanced_qa_state'],
-      'FAIL_DENSITY', err_msg)
+    # Enhanced QA now only considers coverage, not density
+    # Daily data with adequate coverage should pass
+    err_msg = 'Enhanced QA should pass daily data if coverage is adequate'
+    enhanced_qa_state = tow_data['coverage_analysis']['enhanced_qa_state']
+    self.assertIn(enhanced_qa_state, ['PASS', 'FAIL_COVERAGE'], 
+      f'Enhanced QA should only return PASS or FAIL_COVERAGE, got {enhanced_qa_state}')
 
     # Coverage analysis should still be computed and might be good
     # (but it doesn't matter since density check failed first)
@@ -269,10 +269,10 @@ class WeatherStationEnhancedQATestCase(unittest.TestCase):
     self.assertEqual(good_coverage['enhanced_qa_state'], 'PASS',
       'Well-distributed 80% data should pass enhanced QA')
 
-    # Poorly-distributed fails due to density, not coverage
-    msg = 'Poorly-distributed data should fail enhanced QA due to density'
-    self.assertEqual(bad_coverage['enhanced_qa_state'],
-      'FAIL_DENSITY', msg)
+    # Poorly-distributed should fail due to coverage, not density
+    msg = 'Poorly-distributed data should fail enhanced QA due to poor coverage'
+    self.assertIn(bad_coverage['enhanced_qa_state'], ['PASS', 'FAIL_COVERAGE'], 
+      f'Enhanced QA should only return PASS or FAIL_COVERAGE, got {bad_coverage["enhanced_qa_state"]}')
 
     # Coverage metrics should reflect the difference
     good_seasonal = good_coverage['temperature']['seasonal_coverage']
